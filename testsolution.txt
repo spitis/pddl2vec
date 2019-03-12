@@ -1,0 +1,4 @@
+(load loc2 contb robq)
+(move robq loc2 loc1)
+(load loc1 conta robr)
+(unload loc1 contb robq)

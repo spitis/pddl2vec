@@ -1,6 +1,6 @@
 ;; a simple DWR problem with 2 robots and 2 locations
 (define (problem dwrpb1)
-  (:domain dock-worker-robot-pos)
+  (:domain dock-worker-robot-simple)
 
   (:objects
    robr robq - robot

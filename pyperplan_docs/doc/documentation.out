@@ -1,0 +1,19 @@
+\BOOKMARK [1][-]{section.1}{Introduction}{}% 1
+\BOOKMARK [1][-]{section.2}{Usage}{}% 2
+\BOOKMARK [2][-]{subsection.2.1}{Solution}{section.2}% 3
+\BOOKMARK [1][-]{section.3}{Internals}{}% 4
+\BOOKMARK [2][-]{subsection.3.1}{Logging}{section.3}% 5
+\BOOKMARK [2][-]{subsection.3.2}{PDDL representation}{section.3}% 6
+\BOOKMARK [2][-]{subsection.3.3}{Task and Grounding}{section.3}% 7
+\BOOKMARK [2][-]{subsection.3.4}{Search}{section.3}% 8
+\BOOKMARK [3][-]{subsubsection.3.4.1}{Summary}{subsection.3.4}% 9
+\BOOKMARK [3][-]{subsubsection.3.4.2}{Using the SearchNode class}{subsection.3.4}% 10
+\BOOKMARK [3][-]{subsubsection.3.4.3}{SAT planner}{subsection.3.4}% 11
+\BOOKMARK [3][-]{subsubsection.3.4.4}{Implementing new search algorithms}{subsection.3.4}% 12
+\BOOKMARK [2][-]{subsection.3.5}{Heuristics}{section.3}% 13
+\BOOKMARK [3][-]{subsubsection.3.5.1}{Introduction}{subsection.3.5}% 14
+\BOOKMARK [3][-]{subsubsection.3.5.2}{Implementing new heuristics}{subsection.3.5}% 15
+\BOOKMARK [1][-]{section.4}{Tests}{}% 16
+\BOOKMARK [2][-]{subsection.4.1}{Requirements}{section.4}% 17
+\BOOKMARK [2][-]{subsection.4.2}{Run tests}{section.4}% 18
+\BOOKMARK [1][-]{section.5}{Plan validation}{}% 19
