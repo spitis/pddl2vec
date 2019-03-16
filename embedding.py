@@ -56,3 +56,6 @@ class NaiveEmb(PddlEmb):
   def emb_to_state(self, emb):
     """Accepts binary state embedding and returns frozenset state."""
     return frozenset(self.facts_arr[emb.astype(np.bool)])
+
+
+
