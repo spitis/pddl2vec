@@ -123,4 +123,5 @@ dmypy.json
 .pyre/
 
 # PDDL problem filess
-pddl_files/
+pddl_files/*
+!pddl_files/modded_transport
