@@ -127,3 +127,5 @@ snap/
 baselines/
 graphs/
 embeddings/
+pddl_files/*
+!pddl_files/modded_transport
