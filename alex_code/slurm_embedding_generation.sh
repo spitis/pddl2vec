@@ -6,11 +6,11 @@
 
 cd ..
 source add_python_path.sh
-cd scripts
+cd alex_code
 
 source /h/alexadam/anaconda3/bin/activate gnn
 
-problem_path="logistics/43/problogistics-6-1.pddl"
+graph_file="logistics/43/problogistics-6-1.edgelist"
 dimensions=(20 35 50 65 80 95 110 128)
 lengths=(20 40 60 80)
 num_walks=(2 5 8 10)
@@ -26,7 +26,7 @@ do
         do
             for k in ${context_sizes[@]}
             do
-                python -u evaluate_embeddings.py --problem-path=$problem_path --d=$d --l=$l --r=$r --k=$k &
+                python -u run_node2vec.py --graph-file=$graph_file --d=$d --l=$l --r=$r --k=$k &
                 count=$(( count + 1 ))
                 
                 if [ ${count} -gt 14 ]

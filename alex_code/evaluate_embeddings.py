@@ -9,6 +9,8 @@ from settings import ROOT_DIR
 import os
 import json
 
+from alex_code.utils.similarity import cosine_similarity
+
 parser = ArgumentParser()
 parser.add_argument("--problem-path", default="logistics/43/problogistics-6-1.pddl", type=str)
 parser.add_argument("--d", default=128, type=int)
@@ -59,14 +61,16 @@ def load_graph(edges_path):
 def compute_distances(embeddings, G):
     dot_products = []
     distances = []
+    cosine_similarities = []
 
     for i in range(len(G.nodes)):
         for j in range(len(G.nodes)):
             if nx.has_path(G, i, j):
                 dot_products.append(np.dot(embeddings[i], embeddings[j]))
                 distances.append(nx.shortest_path_length(G, i, j))
+                cosine_similarities.append(cosine_similarity(embeddings[i], embeddings[j]))
     
-    return np.array(dot_products), np.array(distances)
+    return np.array(dot_products), np.array(distances), np.array(cosine_similarities)
 
 
 def main(args):
@@ -98,7 +102,7 @@ def main(args):
     embeddings = load_embeddings(embedding_path)
     G = load_graph(edges_path)
     
-    dot_products, distances = compute_distances(embeddings, G)
+    dot_products, distances, cosine_similarities = compute_distances(embeddings, G)
     
     spearman_cor = spearmanr(dot_products, distances)
     pearson_cor = pearsonr(dot_products, distances)
@@ -108,10 +112,14 @@ def main(args):
     
     spearman_cor_inv_dist = spearmanr(dot_products, 1.0 / distances)
     pearson_cor_inv_dist = pearsonr(dot_products, 1.0 / distances)
+
+    spearman_cosine_sim_cor = spearmanr(cosine_similarities, distances)
+    pearson_cosine_sim_cor = pearsonr(cosine_similarities, distances)
     
     results = {"spearman_cor": spearman_cor, "pearson_cor": pearson_cor,
                "spearman_cor_inv_dot": spearman_cor_inv_dot, "pearson_cor_inv_dot": pearson_cor_inv_dot,
-              "spearman_cor_inv_dist": spearman_cor_inv_dist, "pearson_cor_inv_dist": pearson_cor_inv_dist}
+              "spearman_cor_inv_dist": spearman_cor_inv_dist, "pearson_cor_inv_dist": pearson_cor_inv_dist,
+               "spearman_cosine_sim_cor": spearman_cosine_sim_cor, "pearson_cosine_sim_cor": pearson_cosine_sim_cor}
     
     with open(result_path, "w") as fp:
         json.dump(results, fp, indent=4, sort_keys=True)

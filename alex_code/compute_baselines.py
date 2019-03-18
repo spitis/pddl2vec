@@ -23,9 +23,9 @@ def wrapper(func, *args, **kwargs):
 
 
 def solve_problem(task, h):
-    solution = search.astar_search(task, h)
+    solution, expansions = search.astar_search(task, h)
     
-    return solution
+    return solution, expansions
 
 
 def main(args):
@@ -38,11 +38,18 @@ def main(args):
     task = _ground(problem)
     
     heuristics = {_get_heuristic_name(heur): heur for heur in get_heuristics()}
-    times = {}
+    basics = ["blind", "hadd", "hmax"]
+    results = {basic: {"time": None, "expansions": None} for basic in basics}
     
-    for heuristic in ["hadd", "hmax"]:
+    for heuristic in basics:
         wrapped = wrapper(solve_problem, task, heuristics[heuristic](task))
-        times[heuristic] = timeit.timeit(wrapped, number=10)
+        results[heuristic]["time"] = timeit.timeit(wrapped, number=1)
+        solution, expansions = solve_problem(task, heuristics[heuristic](task))
+        
+        if solution is None:
+            raise Exception("Solution does not exist for this problem")
+        
+        results[heuristic]["expansions"] = expansions
         
     result_path = os.environ.get("BASELINES_DIR")
     result_path = os.path.join(ROOT_DIR, result_path)
@@ -54,7 +61,7 @@ def main(args):
     result_path = os.path.join(result_path, os.path.basename(args.problem_file).split(".")[0] + ".json")
     
     with open(result_path, "w") as fp:
-        json.dump(times, fp, indent=4, sort_keys=True)
+        json.dump(results, fp, indent=4, sort_keys=True)
     
 if __name__ == "__main__":
     main(parser.parse_args())

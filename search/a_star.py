@@ -150,7 +150,7 @@ def astar_search(task, heuristic, make_open_entry=ordered_node_astar,
             if task.goal_reached(pop_state):
                 logging.info("Goal reached. Start extraction of solution.")
                 logging.info("%d Nodes expanded" % expansions)
-                return pop_node.extract_solution()
+                return pop_node.extract_solution(), expansions
             rplan = None
             if use_relaxed_plan:
                 (rh, rplan) = heuristic.calc_h_with_plan(
@@ -186,4 +186,4 @@ def astar_search(task, heuristic, make_open_entry=ordered_node_astar,
         counter += 1
     logging.info("No operators left. Task unsolvable.")
     logging.info("%d Nodes expanded" % expansions)
-    return None
+    return None, expansions
