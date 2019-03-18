@@ -129,3 +129,4 @@ graphs/
 embeddings/
 pddl_files/*
 !pddl_files/modded_transport
+embedding_evaluation/
