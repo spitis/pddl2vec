@@ -8,6 +8,13 @@ from settings import ROOT_DIR
 
 parser = ArgumentParser()
 parser.add_argument("--graph-file", default="logistics/43/problogistics-6-1.edgelist", type=str)
+parser.add_argument("--d", default=128, type=int)
+parser.add_argument("--l", default=80, type=int)
+parser.add_argument("--r", default=10, type=int)
+parser.add_argument("--k", default=10, type=int)
+parser.add_argument("--e", default=1, type=int)
+parser.add_argument("--p", default=1, type=float)
+parser.add_argument("--q", default=1, type=float)
 
 
 def main(args):
@@ -24,10 +31,14 @@ def main(args):
     if not os.path.exists(embedding_path):
         os.makedirs(embedding_path)
     
-    embedding_path = os.path.join(embedding_path, os.path.basename(args.graph_file).split(".")[0] + ".emb")
+    problem_name = os.path.basename(args.graph_file).split(".")[0]
+    embedding_file = os.environ.get("EMBEDDING_FILE")
+    embedding_path = os.path.join(embedding_path,  embedding_file.format(problem_name=problem_name, d=args.d, l=args.l, r=args.r, k=args.k, e=args.e,
+                                                                        p=args.p, q=args.q))
     
     command_path = os.environ.get("NODE2VEC_COMMAND")
-    cmd = [os.path.join(ROOT_DIR, command_path), "-i:{}".format(graph_path), "-o:{}".format(embedding_path), "-dr", "-v"]
+    cmd = [os.path.join(ROOT_DIR, command_path), "-i:{}".format(graph_path), "-o:{}".format(embedding_path), "-d:{}".format(args.d),
+           "l:{}".format(args.l), "-r:{}".format(args.r), "-k:{}".format(args.k), "-e:{}".format(args.e), "-p:{}".format(args.p), "-q:{}".format(args.q), "-dr", "-v"]
     
     exitcode = subprocess.call(cmd, stdout=subprocess.PIPE)
 
