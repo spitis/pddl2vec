@@ -6,7 +6,7 @@ from search import searchspace
 import networkx as nx
 
 
-def expand_state_space(planning_task, token_mapping):
+def expand_state_space(planning_task, token_mapping, limit=1000000):
     '''
     Searches for a plan on the given task using breadth first search and
     duplicate detection.
@@ -23,7 +23,11 @@ def expand_state_space(planning_task, token_mapping):
     queue.append(searchspace.make_root_node(planning_task.initial_state))
     # set storing the explored nodes, used for duplicate detection
     closed = {planning_task.initial_state}
+    expansions = 0
+
     while queue:
+        if expansions >= limit:
+            return G, node
         iteration += 1
         logging.debug("breadth_first_search: Iteration %d, #unexplored=%d"
                       % (iteration, len(queue)))
@@ -45,6 +49,7 @@ def expand_state_space(planning_task, token_mapping):
                  # remember the successor state
                 # print("node.g: {} | new_node.g: {}".format(node.g, new_node.g))
                 closed.add(successor_state)
+                expansions += 1
     logging.info("No operators left. Task unsolvable.")
     logging.info("%d Nodes expanded" % iteration)
     return G, None
