@@ -62,6 +62,7 @@ def compute_distances(embeddings, G):
     dot_products = []
     distances = []
     cosine_similarities = []
+    l2s = []
 
     for i in range(len(G.nodes)):
         for j in range(len(G.nodes)):
@@ -69,8 +70,9 @@ def compute_distances(embeddings, G):
                 dot_products.append(np.dot(embeddings[i], embeddings[j]))
                 distances.append(nx.shortest_path_length(G, i, j))
                 cosine_similarities.append(cosine_similarity(embeddings[i], embeddings[j]))
+                l2s.append(np.linalg.norm(embeddings[i] - embeddings[j], 2))
     
-    return np.array(dot_products), np.array(distances), np.array(cosine_similarities)
+    return np.array(dot_products), np.array(distances), np.array(cosine_similarities), np.array(l2s)
 
 
 def main(args):
@@ -102,7 +104,7 @@ def main(args):
     embeddings = load_embeddings(embedding_path)
     G = load_graph(edges_path)
     
-    dot_products, distances, cosine_similarities = compute_distances(embeddings, G)
+    dot_products, distances, cosine_similarities, l2s= compute_distances(embeddings, G)
     
     spearman_cor = spearmanr(dot_products, distances)
     pearson_cor = pearsonr(dot_products, distances)
@@ -115,12 +117,16 @@ def main(args):
 
     spearman_cosine_sim_cor = spearmanr(cosine_similarities, distances)
     pearson_cosine_sim_cor = pearsonr(cosine_similarities, distances)
+
+    spearman_l2_cor = spearmanr(l2s, distances)
+    pearson_l2_cor = pearsonr(l2s, distances)
     
     results = {"spearman_cor": spearman_cor, "pearson_cor": pearson_cor,
                "spearman_cor_inv_dot": spearman_cor_inv_dot, "pearson_cor_inv_dot": pearson_cor_inv_dot,
               "spearman_cor_inv_dist": spearman_cor_inv_dist, "pearson_cor_inv_dist": pearson_cor_inv_dist,
-               "spearman_cosine_sim_cor": spearman_cosine_sim_cor, "pearson_cosine_sim_cor": pearson_cosine_sim_cor}
-    
+               "spearman_cosine_sim_cor": spearman_cosine_sim_cor, "pearson_cosine_sim_cor": pearson_cosine_sim_cor,
+               "spearman_l2_cor": spearman_l2_cor, "pearson_l2_cor": pearson_l2_cor}
+
     with open(result_path, "w") as fp:
         json.dump(results, fp, indent=4, sort_keys=True)
 

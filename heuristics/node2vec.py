@@ -41,9 +41,11 @@ class Node2VecHeuristic(Heuristic):
         node_idx = hash_state(node.state, self.token_mapping)
         
         if node_idx not in self.node_mapping.keys():
-            return 1.0
+            return 0.0
         
         node_idx = self.node_mapping[node_idx]
 
-#         return cosine_similarity(self.embeddings[node_idx], self.embeddings[self.goal_idx])
-        return np.dot(self.embeddings[node_idx], self.embeddings[self.goal_idx])
+        # return np.linalg.norm(self.embeddings[node_idx] - self.embeddings[self.goal_idx])
+        return - 15 * cosine_similarity(self.embeddings[node_idx], self.embeddings[self.goal_idx])
+        # return -np.dot(self.embeddings[node_idx], self.embeddings[self.goal_idx])
+        # return 0.0
