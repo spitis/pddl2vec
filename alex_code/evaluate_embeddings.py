@@ -20,6 +20,8 @@ parser.add_argument("--k", default=10, type=int)
 parser.add_argument("--e", default=1, type=int)
 parser.add_argument("--p", default=1, type=float)
 parser.add_argument("--q", default=1, type=float)
+parser.add_argument("--directed", default="dr", type=str,
+                   choices=["dr", "u"])
 
 
 def load_embeddings(embedding_path):
@@ -85,7 +87,7 @@ def main(args):
     embedding_file = os.environ.get("EMBEDDING_FILE")
     
     embedding_path = os.path.join(embedding_dir, embedding_file.format(problem_name=problem_name, d=args.d,  l=args.l, r=args.r, k=args.k,
-                                                                      e=args.e, p=args.p, q=args.q))
+                                                                      e=args.e, p=args.p, q=args.q, directed=args.directed))
     
     edges_dir = os.environ.get("GRAPHS_DIR")
     edges_dir = os.path.join(ROOT_DIR, edges_dir, os.path.dirname(args.problem_path))
@@ -99,7 +101,7 @@ def main(args):
         
     result_file = os.environ.get("EMBEDDING_EVAL_FILE")
     result_path = os.path.join(result_dir, result_file.format(problem_name=problem_name, d=args.d, l=args.l, r=args.r, k=args.k,
-                                                             e=args.e, p=args.p, q=args.q))
+                                                             e=args.e, p=args.p, q=args.q, directed=args.directed))
     
     embeddings = load_embeddings(embedding_path)
     G = load_graph(edges_path)

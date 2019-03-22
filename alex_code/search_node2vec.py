@@ -27,6 +27,8 @@ parser.add_argument("--k", default=5, type=int)
 parser.add_argument("--e", default=1, type=int)
 parser.add_argument("--p", default=1, type=float)
 parser.add_argument("--q", default=1, type=float)
+parser.add_argument("--directed", default="dr", type=str,
+                   choices=["dr", "u"])
 
 
 def main(args):
@@ -62,7 +64,7 @@ def main(args):
     embedding_file = os.environ.get("EMBEDDING_FILE")
     
     embedding_path = os.path.join(embedding_dir, embedding_file.format(problem_name=problem_name, d=args.d,  l=args.l, r=args.r, k=args.k,
-                                                                      e=args.e, p=args.p, q=args.q))
+                                                                      e=args.e, p=args.p, q=args.q, directed=args.directed))
     
     result_dir = os.environ.get("NODE2VEC_HEURISTIC_RESULT_DIR")
     result_dir = os.path.join(ROOT_DIR, result_dir, os.path.dirname(args.problem_file))
@@ -72,7 +74,7 @@ def main(args):
         
     result_file = os.environ.get("NODE2VEC_HEURISTIC_RESULT_FILE")
     result_path = os.path.join(result_dir, result_file.format(problem_name=problem_name, d=args.d, l=args.l, r=args.r, k=args.k,
-                                                             e=args.e, p=args.p, q=args.q))
+                                                             e=args.e, p=args.p, q=args.q, directed=args.directed))
     
     results = {"node2vec": {"time": None, "expansions": None}}
     
@@ -91,6 +93,8 @@ def main(args):
         raise Exception("Solution does not exist for this problem")
         
     results["node2vec"]["expansions"] = expansions
+
+    print(results)
     
     with open(result_path, "w") as fp:
         json.dump(results, fp, indent=4, sort_keys=True)

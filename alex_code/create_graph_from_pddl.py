@@ -43,7 +43,9 @@ def main(args):
     
     problem = _parse(domain_file=domain_file, problem_file=problem_file)
     task = _ground(problem)
-    
+
+    print("Generating graph for: {}".format(args.problem_path))
+
     token_mapping = generate_token_mapping(problem)
     G, goal_node = expand_state_space(task, token_mapping)
     
