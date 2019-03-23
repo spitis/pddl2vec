@@ -38,7 +38,7 @@ def main(args):
     task = _ground(problem)
     
     heuristics = {_get_heuristic_name(heur): heur for heur in get_heuristics()}
-    basics = ["blind", "hadd", "hmax"]
+    basics = ["blind", "hadd"]
     results = {basic: {"time": None, "expansions": None} for basic in basics}
     
     for heuristic in basics:
@@ -59,7 +59,9 @@ def main(args):
         os.makedirs(result_path)
     
     result_path = os.path.join(result_path, os.path.basename(args.problem_file).split(".")[0] + ".json")
-    
+
+    print(results)
+
     with open(result_path, "w") as fp:
         json.dump(results, fp, indent=4, sort_keys=True)
     
