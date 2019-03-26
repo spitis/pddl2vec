@@ -125,7 +125,8 @@ dmypy.json
 pddl_files/
 snap/
 baselines/
-graphs/
+node2vec_graphs/
+gnn_graphs/
 embeddings/
 pddl_files/*
 !pddl_files/modded_transport

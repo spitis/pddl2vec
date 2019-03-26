@@ -20,7 +20,7 @@ from alex_code.utils.save import read_pickle
 parser = ArgumentParser()
 parser.add_argument("--domain-file", default="logistics/43/domain.pddl", type=str)
 parser.add_argument("--problem-file", default="logistics/43/problogistics-6-1.pddl", type=str)
-parser.add_argument("--d", default=128, type=int)
+parser.add_argument("--d", default=95, type=int)
 parser.add_argument("--l", default=80, type=int)
 parser.add_argument("--r", default=10, type=int)
 parser.add_argument("--k", default=5, type=int)
@@ -45,7 +45,7 @@ def main(args):
     problem = _parse(domain_file=domain_file, problem_file=problem_file)
     task = _ground(problem)
     
-    graph_dir = os.environ.get("GRAPHS_DIR")
+    graph_dir = os.environ.get("NODE2VEC_GRAPH_DIR")
     graph_dir = os.path.join(ROOT_DIR, graph_dir, os.path.dirname(args.problem_file))
     
     node_mapping_file = os.environ.get("NODE_MAPPING_FILE")

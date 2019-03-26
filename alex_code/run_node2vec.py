@@ -7,7 +7,7 @@ import logging
 from settings import ROOT_DIR
 
 parser = ArgumentParser()
-parser.add_argument("--graph-file", default="logistics/43/problogistics-6-1.edgelist", type=str)
+parser.add_argument("--graph-file", default="logistics/38/prob31.edgelist", type=str)
 parser.add_argument("--d", default=128, type=int)
 parser.add_argument("--l", default=80, type=int)
 parser.add_argument("--r", default=10, type=int)
@@ -21,7 +21,7 @@ parser.add_argument("--directed", default="dr", type=str,
 
 def main(args):
     load_dotenv(find_dotenv(), override=True)
-    graph_dir = os.environ.get("GRAPHS_DIR")
+    graph_dir = os.environ.get("NODE2VEC_GRAPH_DIR")
     graph_dir = os.path.join(ROOT_DIR, graph_dir)
     
     embedding_dir = os.environ.get("EMBEDDINGS_DIR")

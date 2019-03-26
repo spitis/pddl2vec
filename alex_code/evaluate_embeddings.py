@@ -89,7 +89,7 @@ def main(args):
     embedding_path = os.path.join(embedding_dir, embedding_file.format(problem_name=problem_name, d=args.d,  l=args.l, r=args.r, k=args.k,
                                                                       e=args.e, p=args.p, q=args.q, directed=args.directed))
     
-    edges_dir = os.environ.get("GRAPHS_DIR")
+    edges_dir = os.environ.get("NODE2VEC_GRAPH_DIR")
     edges_dir = os.path.join(ROOT_DIR, edges_dir, os.path.dirname(args.problem_path))
     edges_path = os.path.join(edges_dir, problem_name + ".edgelist")
     
