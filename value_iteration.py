@@ -9,7 +9,8 @@ from itertools import chain
 from pddl2env import PddlBasicEnv
 from stable_baselines.base_models import SimpleRLModel, SetVerbosity
 import stable_baselines.tf_util as tf_util
-from stable_baselines.replay_buffer import ReplayBuffer
+from stable_baselines.replay_buffer import ReplayBuffer, EpisodicBuffer
+from stable_baselines.schedules import LinearSchedule
 
 
 class SimpleValueIteration(SimpleRLModel):
@@ -166,9 +167,16 @@ class SimpleValueIteration(SimpleRLModel):
                     dtype=tf.int32,
                     name='obs_ph')
                 obs_next_ph = tf.placeholder(
-                    shape=[None, None, self.env.observation_space.n],
+                    shape=[None, self.env.observation_space.n],
                     dtype=tf.int32,
                     name='obs_next_ph')
+                # The number of valid actions to take from the states in obs_ph.
+                # This is used in the epsilon greedy wrapper, in order to
+                # randomly select an action within the allowed range.
+                num_valid_successors_ph = tf.placeholder(
+                    shape=[], dtype=tf.int64, name='num_valid_successors')
+
+                # The number of obs, next obs and num valid successors given.
                 batch_size = tf.shape(obs_ph)[0]
 
                 with tf.variable_scope("embedding_network"):
@@ -190,18 +198,19 @@ class SimpleValueIteration(SimpleRLModel):
                     self.b_value_network = tf.get_variable(
                         'value_network_b', initializer=tf.zeros(1))
 
-                    # The value of each state in self.obs_ph.
+                    # The value of each state in obs_ph.
                     self.values = self.forward_pass(obs_ph)
 
                     # The value of each successor state of each state in obs_ph.
-                    all_successors = tf.reshape(
-                        obs_next_ph, [-1, self.env.observation_space.n])
-                    next_values = self.forward_pass(all_successors)
-                    self.next_values = tf.reshape(
-                        next_values,
-                        [self.batch_size, -1, self.env.observation_space.n])
+                    # all_successors = tf.reshape(
+                    #  obs_next_ph, [-1, self.env.observation_space.n])
+                    # next_values = self.forward_pass(all_successors)
+                    # self.next_values = tf.reshape(next_values,
+                    #                             [self.batch_size, -1])
+                    self.next_values = self.forward_pass(obs_next_ph)
 
-                    # exploration placeholders & online action with exploration noise
+                    # Exploration placeholders & online action with exploration
+                    # noise.
                     epsilon_ph = tf.placeholder_with_default(
                         0., shape=(), name="epsilon_ph")
                     threshold_ph = tf.placeholder_with_default(
@@ -213,9 +222,10 @@ class SimpleValueIteration(SimpleRLModel):
                     goal_phs = goal_ph = goal_action_phs = None
                     goal_or_goalstate_ph = None
 
-                    # Get the epsilon-greedily-chosen next action.
-                    successor = self.epsilon_greedy_wrapper(
-                        batch_size, epsilon_ph)
+                    # For each obs in obs_ph, the index of the action that will
+                    # be chosen according to the epsilon-greedy policy.
+                    actions_index = self.epsilon_greedy_wrapper(
+                        batch_size, num_valid_successors_ph, epsilon_ph)
 
                 with tf.variable_scope("loss"):
 
@@ -273,11 +283,13 @@ class SimpleValueIteration(SimpleRLModel):
                     self._train_step = training_step
                     self._obs_ph = obs_ph
                     self._obs_next_ph = obs_next_ph
+                    self._num_valid_successors_ph = num_valid_successors_ph
                     self._reward_ph = r_t
                     self._dones_ph = done_mask_ph
+                    self._act_index = actions_index
                     #self._goal_ph = policy.goal_ph
                     #self._goal2_ph = target_policy.goal_ph
-                    #self._is_train_ph = policy.is_train_ph
+                    #self._is_train_ph = is_train_ph
                     #self._is_train2_ph = target_policy.is_train_ph
                     #self._is_train3_ph = double_policy.is_train_ph
                     self.epsilon_ph = epsilon_ph
@@ -328,9 +340,10 @@ class SimpleValueIteration(SimpleRLModel):
         self.reset = np.ones([self.n_envs, 1])
 
         items = [("observations0", self.observation_space.shape),
-                 ("actions", self.action_space.shape), ("rewards", (1, )),
+                 ("rewards", (1, )),
                  ("observations1", self.observation_space.shape),
-                 ("terminals1", (1, ))]
+                 ("terminals1", (1, )), ("num_valid_successors", (1, ))]
+
         if self.goal_space is not None:
             if not isinstance(self.goal_space, gym.spaces.tuple_space.Tuple):
                 items += [
@@ -403,34 +416,37 @@ class SimpleValueIteration(SimpleRLModel):
         num_total_facts = len(self.env.task.facts)
         states = [
             np.pad(
-                state, (0, num_total_facts - len(facts)),
+                state, (0, num_total_facts - len(state)),
                 'constant',
                 constant_values=num_total_facts) for state in states
         ]
         states = np.stack(states, 0)
         return states
 
-    def _get_action_for_single_obs(self, obs):
+    def _get_action_for_single_obs(self, obs, num_valid_successors):
         """Called during training loop to get online action (/w exploration)."""
         feed_dict = {
-            self.obs_ph: self.pad_and_stack_obs([obs]),
+            self._obs_ph: self.pad_and_stack_obs([obs]),
+            self._num_valid_successors_ph: num_valid_successors,
             self.epsilon_ph: self.exploration.value(self.task_step),
             self.reset_ph: self.reset
         }
-        feed_dict[self._is_train_ph] = False
 
-        chosen_action_ind = self.sess.run(self._act, feed_dict=feed_dict)
-        return self.env.get_actions()[chosen_action_ind]
+        chosen_action_ind = self.sess.run(
+            self._act_index, feed_dict=feed_dict)[0]
+        return [self.env.get_actions()[chosen_action_ind]]
 
-    def _process_experience(self, obs, action, rew, new_obs, done):
+    def _process_experience(self, obs, action, rew, new_obs, done,
+                            num_valid_successors):
         """Called during training loop after action is taken; includes learning;
         returns a summary"""
 
-        # The action is the same as new_obs.
+        # new_obs fully determines the action that was taken.
         del action
 
         summaries = []
-        expanded_done = np.expand_dims(done.astype(np.float32), 1)
+        expanded_done = np.expand_dims(done, 1).astype(np.float32)
+        num_valid_successors = np.expand_dims(num_valid_successors, 1)
         rew = np.expand_dims(rew, 1)
 
         goal_agent = self.goal_space is not None
@@ -443,8 +459,10 @@ class SimpleValueIteration(SimpleRLModel):
             raise NotImplementedError(
                 'Need to fix this part after the changes.')
         else:
-            self.replay_buffer.add_batch(obs, None, rew, new_obs,
-                                         expanded_done)
+            obs_padded = self.pad_and_stack_obs([obs])
+            new_obs_padded = self.pad_and_stack_obs([new_obs])
+            self.replay_buffer.add_batch(obs_padded, rew, new_obs_padded,
+                                         expanded_done, num_valid_successors)
 
         if self.hindsight_fn is not None:
             for idx in range(self.n_envs):
@@ -495,89 +513,19 @@ class SimpleValueIteration(SimpleRLModel):
             if self.task_step > self.learning_starts:
                 if self.task_step % self.train_freq == 0:
                     if goal_agent:
-                        if self.replay_buffer_hindsight is not None and len(
-                                # TODO: Deal with when there's goal action
-                                self.replay_buffer_hindsight
-                        ) and self.hindsight_frac > 0.:
-                            hindsight_batch_size = round(
-                                self.batch_size * self.hindsight_frac)
-                            real_batch_size = (
-                                self.batch_size - hindsight_batch_size)
-
-                            if not isinstance(self.goal_space,
-                                              gym.spaces.tuple_space.Tuple):
-                                # Sample from real batch
-                                (obses_t, actions, rewards, obses_tp1, dones,
-                                 desired_g
-                                 ) = self.replay_buffer.sample(real_batch_size)
-
-                                # Sample from hindsight batch
-                                (obses_t_hs, actions_hs, rewards_hs,
-                                 obses_tp1_hs, dones_hs, desired_g_hs
-                                 ) = self.replay_buffer_hindsight.sample(
-                                     hindsight_batch_size)
-                            else:
-                                # Sample from real batch
-                                (obses_t, actions, rewards, obses_tp1, dones,
-                                 desired_g, desired_g_action
-                                 ) = self.replay_buffer.sample(real_batch_size)
-
-                                # Sample from hindsight batch
-                                (obses_t_hs, actions_hs, rewards_hs,
-                                 obses_tp1_hs, dones_hs, desired_g_hs,
-                                 desired_g_action_hs
-                                 ) = self.replay_buffer_hindsight.sample(
-                                     hindsight_batch_size)
-
-                            # Concatenate the two
-                            obses_t = np.concatenate([obses_t, obses_t_hs], 0)
-                            actions = np.concatenate([actions, actions_hs], 0)
-                            rewards = np.concatenate([rewards, rewards_hs], 0)
-                            obses_tp1 = np.concatenate(
-                                [obses_tp1, obses_tp1_hs], 0)
-                            dones = np.concatenate([dones, dones_hs], 0)
-                            desired_g = np.concatenate(
-                                [desired_g, desired_g_hs], 0)
-
-                            if isinstance(self.goal_space,
-                                          gym.spaces.tuple_space.Tuple):
-                                desired_g_action = np.concatenate(
-                                    [desired_g_action, desired_g_action_hs], 0)
-
-                        else:
-                            if not isinstance(self.goal_space,
-                                              gym.spaces.tuple_space.Tuple):
-                                (obses_t, actions, rewards, obses_tp1, dones,
-                                 desired_g) = self.replay_buffer.sample(
-                                     self.batch_size)
-                            else:
-                                (obses_t, actions, rewards, obses_tp1, dones,
-                                 desired_g,
-                                 desired_g_action) = self.replay_buffer.sample(
-                                     self.batch_size)
-
+                        raise NotImplementedError('Need to adjust this.')
                     else:
-                        (obses_t, _, rewards, obses_tp1,
-                         dones) = self.replay_buffer.sample(self.batch_size)
+                        (obses_t, rewards, obses_tp1, dones,
+                         _) = self.replay_buffer.sample(self.batch_size)
 
                     rewards = np.squeeze(rewards, 1)
                     dones = np.squeeze(dones, 1)
-
-                    #feed_dict = {
-                    #    self._obs1_ph: obses_t,
-                    #    self._reward_ph: rewards,
-                    #    self._obs2_ph: obses_tp1,
-                    #    self._dones_ph: dones,
-                    #    self._is_train_ph: True,
-                    #    self._is_train2_ph: True,
-                    #    self._is_train3_ph: True
-                    #}
 
                     feed_dict = {
                         self._obs_ph: obses_t,
                         self._obs_next_ph: obses_tp1,
                         self._reward_ph: rewards,
-                        self._dones_ph: dones
+                        self._dones_ph: dones,
                     }
 
                     if goal_agent:
@@ -596,8 +544,8 @@ class SimpleValueIteration(SimpleRLModel):
 
                     summaries.append(summary)
 
-                if self.task_step % self.target_network_update_freq == 0:
-                    self.sess.run(self.update_target_network)
+                #if self.task_step % self.target_network_update_freq == 0:
+                    #self.sess.run(self.update_target_network)
 
         return summaries
 
@@ -692,13 +640,14 @@ class SimpleValueIteration(SimpleRLModel):
 
     #    self._save_to_file(save_path, data=data, params=params)
 
-    def epsilon_greedy_wrapper(self, batch_size, epsilon_placeholder):
-        """Returns the epsilon-greedily-chosen index of the successor state."""
+    def epsilon_greedy_wrapper(self, batch_size, num_valid_successors,
+                               epsilon_placeholder):
+        """Returns the index of obs' epsilon-greedily-chosen next state."""
         deterministic_actions = tf.argmax(self.values, axis=1)
         random_actions = tf.random_uniform(
             tf.stack([batch_size]),
             minval=0,
-            maxval=len(self.env.get_actions()),
+            maxval=num_valid_successors,
             dtype=tf.int64)
         chose_random = tf.random_uniform(
             tf.stack([batch_size]), minval=0, maxval=1,
@@ -710,5 +659,6 @@ if __name__ == '__main__':
     env = PddlBasicEnv(
         domain='pddl_files/modded_transport/6/domain.pddl',
         instance='pddl_files/modded_transport/6/p01.pddl')
-    model = SimpleValueIteration(env=env)
-    model.learn(total_timesteps=100000)
+    model = SimpleValueIteration(
+        env=env, tensorboard_log='/scratch/gobi1/eleni/csc2542/')
+    model.learn(total_timesteps=100000, tb_log_name='value_iteration')

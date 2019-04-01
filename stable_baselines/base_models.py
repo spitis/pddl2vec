@@ -416,7 +416,7 @@ class SimpleRLModel(BaseRLModel):
               callback=None,
               seed=None,
               log_interval=100,
-              tb_log_name="DQN"):
+              tb_log_name=""):
         """Assumes VecEnv"""
 
         print("$&$ YAY YOU ARE USING THE CORRECT STABLE BASELINES #&#")
@@ -450,12 +450,18 @@ class SimpleRLModel(BaseRLModel):
                         callback(locals(), globals())
 
                     # Take action and update exploration to the newest value
-                    actions = self._get_action_for_single_obs(obses)
+                    num_valid_successors = len(self.env._actions)
+                    actions = self._get_action_for_single_obs(
+                        obses, num_valid_successors)
                     new_obses, rewards, dones, _ = self.env.step(actions)
+      
+                    rewards = np.expand_dims(rewards, 0)  # [1, ]
+                    dones = np.expand_dims(dones, 0)  # [1,]
 
                     # Do the learning and fetch tensorboard summaries
                     summaries = self._process_experience(
-                        obses, actions, rewards, new_obses, dones)
+                        obses, actions, rewards, new_obses, dones,
+                        num_valid_successors)
 
                     # Tensorboard logging
                     if writer is not None and summaries:
@@ -463,9 +469,9 @@ class SimpleRLModel(BaseRLModel):
                             writer.add_summary(summary, self.global_step)
                             ep_rewards = np.expand_dims(rewards, 1)
                             ep_dones = np.expand_dims(dones, 1)
-                            tb_episode_rewards = total_episode_reward_logger(
-                                tb_episode_rewards, ep_rewards, ep_dones,
-                                writer, len(legacy_episode_rewards))
+                            #tb_episode_rewards = total_episode_reward_logger(
+                            #    tb_episode_rewards, ep_rewards, ep_dones,
+                            #    writer, len(legacy_episode_rewards))
 
                     # Command line and evaluation logging
                     legacy_episode_rewards_per_env += rewards
