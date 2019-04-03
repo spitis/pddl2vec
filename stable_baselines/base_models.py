@@ -449,19 +449,18 @@ class SimpleRLModel(BaseRLModel):
                     if callback is not None:
                         callback(locals(), globals())
 
-                    # Take action and update exploration to the newest value
-                    num_valid_successors = len(self.env._actions)
+                    # A list of state representations of all valid successors.
+                    all_valid_successors = self.env.get_actions()
                     actions = self._get_action_for_single_obs(
-                        obses, num_valid_successors)
+                        obses, all_valid_successors)
                     new_obses, rewards, dones, _ = self.env.step(actions)
-      
+
                     rewards = np.expand_dims(rewards, 0)  # [1, ]
                     dones = np.expand_dims(dones, 0)  # [1,]
 
                     # Do the learning and fetch tensorboard summaries
                     summaries = self._process_experience(
-                        obses, actions, rewards, new_obses, dones,
-                        num_valid_successors)
+                        obses, actions, rewards, new_obses, dones)
 
                     # Tensorboard logging
                     if writer is not None and summaries:
