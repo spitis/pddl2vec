@@ -57,7 +57,7 @@ class SimpleValueIteration(SimpleRLModel):
                  env,
                  embed_dim=16,
                  gamma=0.99,
-                 learning_rate=5e-4,
+                 learning_rate=1e-3,
                  exploration_fraction=0.1,
                  exploration_final_eps=0.02,
                  buffer_size=50000,
@@ -609,7 +609,7 @@ class SimpleValueIteration(SimpleRLModel):
     def epsilon_greedy_wrapper(self, epsilon_placeholder):
         """Returns the index of obs' epsilon-greedily-chosen next state."""
         deterministic_actions = tf.argmax(self.all_successor_values, axis=1)
-        batch_size = tf.shape(self.values)[0]
+        batch_size = tf.shape(self.all_successor_values)[0]
         num_valid_successors = tf.cast(
             tf.shape(self.all_successor_values)[1], tf.int64)
         random_actions = tf.random_uniform(
