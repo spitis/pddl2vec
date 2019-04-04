@@ -451,7 +451,7 @@ class SimpleRLModel(BaseRLModel):
 
                     # A list of state representations of all valid successors.
                     all_valid_successors = self.env.get_actions()
-                    actions = self._get_action_for_single_obs(
+                    actions, argmax_actions = self._get_action_for_single_obs(
                         obses, all_valid_successors)
                     new_obses, rewards, dones, _ = self.env.step(actions)
 
@@ -459,8 +459,11 @@ class SimpleRLModel(BaseRLModel):
                     dones = np.expand_dims(dones, 0)  # [1,]
 
                     # Do the learning and fetch tensorboard summaries
+                    # The argmax_actions are fed in the place of new_obses.
+                    # This is because we want the training to happen using the
+                    # best next action, not the epsilon-greedily chosen one.
                     summaries = self._process_experience(
-                        obses, actions, rewards, new_obses, dones)
+                        obses, actions, rewards, argmax_actions, dones)
 
                     # Tensorboard logging
                     if writer is not None and summaries:
