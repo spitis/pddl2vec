@@ -20,10 +20,10 @@ from alex_code.utils.save import read_pickle
 parser = ArgumentParser()
 parser.add_argument("--domain-file", default="logistics/43/domain.pddl", type=str)
 parser.add_argument("--problem-file", default="logistics/43/problogistics-6-1.pddl", type=str)
-parser.add_argument("--d", default=95, type=int)
-parser.add_argument("--l", default=80, type=int)
-parser.add_argument("--r", default=10, type=int)
-parser.add_argument("--k", default=5, type=int)
+parser.add_argument("--d", default=20, type=int)
+parser.add_argument("--l", default=20, type=int)
+parser.add_argument("--r", default=2, type=int)
+parser.add_argument("--k", default=3, type=int)
 parser.add_argument("--e", default=1, type=int)
 parser.add_argument("--p", default=1, type=float)
 parser.add_argument("--q", default=1, type=float)
@@ -52,12 +52,9 @@ def main(args):
     node_mapping_file = os.path.join(graph_dir, node_mapping_file.format(problem_name=problem_name))
     
     print(node_mapping_file)
-    
-    token_mapping_file = os.environ.get("TOKEN_MAPPING_FILE")
-    token_mapping_file = os.path.join(graph_dir, token_mapping_file.format(problem_name=problem_name))
 
     goal_file = os.environ.get("GOAL_FILE")
-    goal_file = os.path.join(graph_dir, goal_file)
+    goal_file = os.path.join(graph_dir, goal_file.format(problem_name=problem_name))
     
     embedding_dir = os.environ.get("EMBEDDINGS_DIR")
     embedding_dir = os.path.join(ROOT_DIR, embedding_dir, os.path.dirname(args.problem_file))
@@ -80,10 +77,9 @@ def main(args):
     
     embeddings = load_embeddings(embedding_path)
     node_mapping = read_pickle(node_mapping_file)
-    token_mapping = read_pickle(token_mapping_file)
     goal = read_pickle(goal_file)["idx"]
     
-    heuristic = Node2VecHeuristic(task, embeddings, node_mapping, token_mapping, goal)
+    heuristic = Node2VecHeuristic(task, embeddings, node_mapping, goal)
     
     wrapped = wrapper(solve_problem, task, heuristic)
     results["node2vec"]["time"] = timeit.timeit(wrapped, number=1)
