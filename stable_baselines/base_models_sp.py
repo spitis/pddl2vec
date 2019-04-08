@@ -196,7 +196,7 @@ class BaseRLModel(ABC):
                       "Beat previous best eval performance of {}! Saving model..."
                       .format(best_eval))
                   best_eval = mean_eval
-                  self.save(os.path.join(data_path, 'best_eval.pkl'))
+                  #self.save(os.path.join(data_path, 'best_eval.pkl'))
 
             if self.verbose >= 1 and log_interval is not None and num_episodes % log_interval == 0:
               if len(legacy_episode_rewards[-101:-1]) == 0:

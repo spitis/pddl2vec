@@ -16,19 +16,19 @@ class SimpleValueIteration(BaseRLModel):
   def __init__(self,
                env,
                embed_dim=400,
-               gamma=0.99,
+               gamma=0.98,
                learning_rate=1e-3,
                *,
-               exploration_fraction=0.3,
+               exploration_fraction=.7,
                buffer_size=100000,
-               train_freq=20,
+               train_freq=10,
                batch_size=512,
                learning_starts=2500,
                target_network_update_frac=1.,
                target_network_update_freq=500,
                hindsight_mode=None,
                hindsight_frac=0.,
-               grad_norm_clipping=10.,
+               grad_norm_clipping=1.,
                verbose=1,
                tensorboard_log=None,
                eval_env=None,
@@ -104,7 +104,8 @@ class SimpleValueIteration(BaseRLModel):
 
     # Now forward pass through the value network.
     # TODO: Which activation should I use here? None.
-    state_vals = tf.matmul(state_embeds, self.W_value_network) + self.b_value_network
+    #h1 = tf.nn.tanh(tf.matmul(state_embeds, self.W_value_network) + self.b_value_network)
+    state_vals = tf.matmul(state_embeds, self.W2_value_network) + self.b2_value_network
     return state_vals
 
   def _setup_model(self):
@@ -139,10 +140,15 @@ class SimpleValueIteration(BaseRLModel):
         with tf.variable_scope("deep_value_iteration"):
           # Initialize the weights of the value network.
           self.W_value_network = tf.get_variable(
-              'value_network_W',
-              initializer=tf.truncated_normal([self.embed_dim, 1]))
+              'value_network_W1',
+              initializer=tf.truncated_normal([self.embed_dim, self.embed_dim]))
           self.b_value_network = tf.get_variable(
-              'value_network_b', initializer=tf.zeros(1))
+              'value_network_b1', initializer=tf.zeros(self.embed_dim))
+          self.W2_value_network = tf.get_variable(
+              'value_network_W2',
+              initializer=tf.truncated_normal([self.embed_dim, 1]))
+          self.b2_value_network = tf.get_variable(
+              'value_network_b2', initializer=tf.zeros(1))
 
           # The value of each state in obs_ph. [batch size, 1].
           self.values = self.forward_pass(obs_ph)
@@ -178,10 +184,10 @@ class SimpleValueIteration(BaseRLModel):
           # gamma
           pcont_t = tf.constant([self.gamma])
           #pcont_t = tf.tile(pcont_t, tf.shape(r_t))
-          #pcont_t *= (1 - done_mask_ph) * pcont_t
+          pcont_t *= -r_t
 
           # Target values based on 1-step bellman.
-          target = tf.stop_gradient(r_t + pcont_t * self.next_values)
+          target = tf.clip_by_value(tf.stop_gradient(r_t + pcont_t * self.next_values), -np.inf, 0.)
           l2_loss = 0.5 * tf.square(target - self.values)
           mean_l2_loss = tf.reduce_mean(l2_loss)
           tf.summary.scalar("loss", mean_l2_loss)
@@ -404,11 +410,20 @@ class SimpleValueIteration(BaseRLModel):
         rewards = np.squeeze(rewards, 1)
         dones = np.squeeze(dones, 1)
 
-        successors = np.expand_dims(obses_tp1, 1)
-
+        #successors = np.expand_dims(obses_tp1, 1)
+        successors = [self.successor_dict[tuple(o)] for o in obses_t]
+        new_sucs = []
+        max_succ_len = max(map(len, successors))
+        for suc in successors:
+          if len(suc) == max_succ_len:
+            new_sucs.append(suc)
+          else:
+            new_suc = list(suc) + [suc[-1]] * (max_succ_len - len(suc))
+            new_sucs.append(new_suc)
+          
         feed_dict = {
             self._obs_ph: obses_t,
-            self._all_valid_successors_ph: successors,
+            self._all_valid_successors_ph: new_sucs,
             self._reward_ph: rewards,
             self._dones_ph: dones,
         }
@@ -486,4 +501,4 @@ if __name__ == '__main__':
       instance='pddl_files/modded_transport/ptest.pddl')
   eval_env = copy.deepcopy(env)
   model = SimpleValueIteration(env=env, tensorboard_log='./test/', eval_env=eval_env)
-  model.learn(total_timesteps=1000000, max_steps=100, tb_log_name='value_iteration')
+  model.learn(total_timesteps=1000000, max_steps=50, tb_log_name='value_iteration')
