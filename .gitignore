@@ -130,7 +130,9 @@ gnn_graphs/
 embeddings/
 pddl_files/*
 !pddl_files/modded_transport
+!pddl_files/modded_transport/*
 !pddl_files/logistics
+!pddl_files/logistics/*
 embedding_evaluation/
 alex_code/*.out
 node2vec_heuristic_results/

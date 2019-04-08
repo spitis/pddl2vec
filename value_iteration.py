@@ -625,7 +625,7 @@ class SimpleValueIteration(SimpleRLModel):
 
 if __name__ == '__main__':
     env = PddlBasicEnv(
-        domain='pddl_files/modded_transport/6/domain.pddl',
+        domain='pddl_files/modded_transport/domain.pddl',
         instance='pddl_files/modded_transport/6/p01.pddl')
     model = SimpleValueIteration(
         env=env, tensorboard_log='/scratch/gobi1/eleni/csc2542/')
