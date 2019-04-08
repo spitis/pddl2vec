@@ -57,7 +57,7 @@ class SimpleValueIteration(SimpleRLModel):
                  env,
                  embed_dim=16,
                  gamma=0.99,
-                 learning_rate=5e-4,
+                 learning_rate=1e-3,
                  exploration_fraction=0.1,
                  exploration_final_eps=0.02,
                  buffer_size=50000,
@@ -239,7 +239,8 @@ class SimpleValueIteration(SimpleRLModel):
 
                     # For each obs in obs_ph, the index of the action that will
                     # be chosen according to the epsilon-greedy policy.
-                    actions_index = self.epsilon_greedy_wrapper(epsilon_ph)
+                    (actions_index, argmax_actions_index
+                     ) = self.get_argmax_and_epsilon_greedy_actions(epsilon_ph)
 
                 with tf.variable_scope("loss"):
 
@@ -294,6 +295,7 @@ class SimpleValueIteration(SimpleRLModel):
                     self._reward_ph = r_t
                     self._dones_ph = done_mask_ph
                     self._act_index = actions_index
+                    self._argmax_act_index = argmax_actions_index
                     #self._goal_ph = policy.goal_ph
                     #self._goal2_ph = target_policy.goal_ph
                     #self._is_train_ph = is_train_ph
@@ -452,9 +454,14 @@ class SimpleValueIteration(SimpleRLModel):
             self.reset_ph: self.reset
         }
 
-        chosen_action_ind = self.sess.run(
-            self._act_index, feed_dict=feed_dict)[0]
-        return [self.env.get_actions()[chosen_action_ind]]
+        epsilon_greedy_action_ind, det_action_ind = self.sess.run(
+            [self._act_index, self._argmax_act_index], feed_dict=feed_dict)
+
+        epsilon_greedy_actions = [
+            self.env.get_actions()[epsilon_greedy_action_ind[0]]
+        ]
+        deterministic_actions = [self.env.get_actions()[det_action_ind[0]]]
+        return epsilon_greedy_actions, deterministic_actions
 
     def _process_experience(self, obs, action, rew, new_obs, done):
         """Called during training loop after action is taken; includes learning;
@@ -478,7 +485,8 @@ class SimpleValueIteration(SimpleRLModel):
                 'Need to fix this part after the changes.')
         else:
             obs_padded = self.pad_and_stack_obs([obs])
-            new_obs_padded = self.pad_and_stack_obs([new_obs])
+            new_obs_padded = self.pad_and_stack_obs(new_obs)
+
             self.replay_buffer.add_batch(obs_padded, rew, new_obs_padded,
                                          expanded_done)
 
@@ -606,10 +614,10 @@ class SimpleValueIteration(SimpleRLModel):
 
     #    self._save_to_file(save_path, data=data, params=params)
 
-    def epsilon_greedy_wrapper(self, epsilon_placeholder):
-        """Returns the index of obs' epsilon-greedily-chosen next state."""
+    def get_argmax_and_epsilon_greedy_actions(self, epsilon_placeholder):
+        """Gets the inds of obs' e-greedily and greedily-chosen next states."""
         deterministic_actions = tf.argmax(self.all_successor_values, axis=1)
-        batch_size = tf.shape(self.values)[0]
+        batch_size = tf.shape(self.all_successor_values)[0]
         num_valid_successors = tf.cast(
             tf.shape(self.all_successor_values)[1], tf.int64)
         random_actions = tf.random_uniform(
@@ -620,7 +628,10 @@ class SimpleValueIteration(SimpleRLModel):
         chose_random = tf.random_uniform(
             tf.stack([batch_size]), minval=0, maxval=1,
             dtype=tf.float32) < epsilon_placeholder
-        return tf.where(chose_random, random_actions, deterministic_actions)
+
+        epsilon_greedy_actions = tf.where(chose_random, random_actions,
+                                          deterministic_actions)
+        return epsilon_greedy_actions, deterministic_actions
 
 
 if __name__ == '__main__':
