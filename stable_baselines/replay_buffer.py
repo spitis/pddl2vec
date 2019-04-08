@@ -1,15 +1,5 @@
 import numpy as np, random
 from collections import OrderedDict, deque
-import multiprocessing as mp
-from stable_baselines.base_vec_env import CloudpickleWrapper
-
-def worker_init(process_trajectory_fn_wrapper):
-  global process_trajectory
-  process_trajectory = process_trajectory_fn_wrapper.var
-
-def worker_fn(trajectory):
-  global process_trajectory
-  return process_trajectory(trajectory)
 
 class RingBuffer(object):
   """This is a collections.deque in numpy, with pre-allocated memory"""
@@ -184,7 +174,6 @@ class EpisodicBuffer(object):
     n_cpus = n_cpus or n_subbuffers
     
     self.fn = process_trajectory_fn
-    self.pool = mp.Pool(n_cpus, initializer=worker_init, initargs=(CloudpickleWrapper(process_trajectory_fn),))
 
   def commit_subbuffer(self, i):
     """
@@ -206,7 +195,7 @@ class EpisodicBuffer(object):
     """
     Processes trajectories
     """
-    return self.pool.map(worker_fn, self._main_buffer)
+    return map(self.fn, self._main_buffer)
 
   def clear_main_buffer(self):
     self._main_buffer = []
@@ -217,20 +206,6 @@ class EpisodicBuffer(object):
 
   def close(self):
     self.pool.close()
-
-
-def her_final(trajectory, compute_reward):
-  """produces hindsight experiences where desired_goal is replaced with final achieved_goal"""
-  final_achieved_goal = trajectory[-1][4]
-  if np.allclose(final_achieved_goal, trajectory[-1][5]):
-    return [] # don't add successful trajectories twice
-  hindsight_trajectory = []
-  for o1, action, reward, o2, achieved_goal, desired_goal in trajectory:
-    new_reward = compute_reward(achieved_goal, final_achieved_goal, None)
-    hindsight_trajectory.append([o1, action, new_reward, o2, new_reward, final_achieved_goal])
-    if np.allclose(new_reward, 1.0):
-      break
-  return hindsight_trajectory
 
 def her_future(trajectory, k, compute_reward, reward_mode, sample_her_with_replacement, process_successful_trajectories=True):
   """produces hindsight experiences where desired_goal is replaced with future achieved_goals
@@ -275,59 +250,6 @@ def her_future(trajectory, k, compute_reward, reward_mode, sample_her_with_repla
     
   return hindsight_experiences
 
-
-def her_future_landmark(trajectory, k, compute_reward, process_successful_trajectories=True):
-  """produces hindsight experiences where desired_goal is replaced with future achieved_goals
-  if short circuit is true, cuts of the end of the trajectory where the achieved goal does not move.
-
-  Also generates the landmarks for the hindsight experiences where the landmarks are sampled
-  from the states visited in between the state and hindsight goal."""
-  final_achieved_goal = trajectory[-1][4]
-  if not process_successful_trajectories and np.allclose(final_achieved_goal, trajectory[-1][5]):
-    return []  # don't add successful trajectories twice
-  achieved_goals = np.array([transition[4] for transition in trajectory])
-  states = np.array([transition[0] for transition in trajectory])
-
-  len_ag = len(achieved_goals)
-  achieved_goals_range = np.array(range(len_ag))
-  hindsight_experiences = []
-  landmark_experiences = []
-  for i, (o1, action, _, o2, achieved_goal, _) in enumerate(trajectory):
-    sampled_goals_idx = np.random.choice(achieved_goals_range[i:], min(k, len_ag - i), replace=False)
-    sampled_goals = achieved_goals[sampled_goals_idx]
-    for j, g in zip(sampled_goals_idx, sampled_goals):
-      reward = compute_reward(achieved_goal, g, None)
-      hindsight_experiences.append([o1, action, reward, o2, reward, g])
-
-      # Sample a landmark value
-      if (j-i) > 1: # More than 1 time steps apart
-        landmark_idx = np.random.choice(range(i+1,j)) # Doesn't include the ith and jth state
-        sampled_landmark = states[landmark_idx]
-        landmark_experiences.append([o1, action, sampled_landmark, g])
-
-  return hindsight_experiences, landmark_experiences
-
-def her_future_with_states(trajectory, k, compute_reward):
-  """produces hindsight experiences where desired_goal is replaced with future achieved_goals
-  if short circuit is true, cuts of the end of the trajectory where the achieved goal does not move"""
-  achieved_goals = np.array([transition[3] for transition in trajectory])
-  
-  len_ag = len(achieved_goals)
-  achieved_goals_range = np.array(range(len_ag))
-  hindsight_experiences = []
-  for i, (o1, action, _, o2, _, _) in enumerate(trajectory):
-    sampled_goals = np.random.choice(achieved_goals_range[i:], min(k, len_ag - i), replace=False)
-    sampled_goals = achieved_goals[sampled_goals]
-    for g in sampled_goals:
-      reward = compute_reward(o2, g, None)
-      hindsight_experiences.append([o1, action, reward, o2, reward, g])
-  return hindsight_experiences
-
-def her_landmark(trajectory, k, compute_reward):
-  """produces hindsight experiences where desired_goal is replaced with future achieved_goals,
-  and initial state is sampled from the states prior to the current state"""
-  return
-
 class HerFutureAchievedPastActual():
   def __init__(self, k, p, compute_reward, reward_mode, sample_her_with_replacement, past_goal_memory=100000):
     self.k = k # future
@@ -356,89 +278,3 @@ class HerFutureAchievedPastActual():
         hindsight_experiences.append([o1, action, reward, o2, np.allclose(reward, self.reward_mode), g])
     return hindsight_experiences
 
-class HerFutureAchievedPastActualLandmark():
-  def __init__(self, k, p, compute_reward, past_goal_memory=10000):
-    self.k = k # future
-    self.p = p # past goals
-    self.compute_reward = compute_reward
-    self.goal_mem=deque(maxlen=past_goal_memory)
-  
-  def __call__(self, trajectory):
-    actual_goal = trajectory[0][5]
-    self.goal_mem.append(actual_goal)
-    achieved_goals = np.array([transition[4] for transition in trajectory])
-    states = np.array([transition[0] for transition in trajectory])
-    len_ag = len(achieved_goals)
-    achieved_goals_range = np.array(range(len_ag))
-
-    hindsight_experiences = []
-    landmark_experiences = []
-    for i, (o1, action, _, o2, achieved_goal, _) in enumerate(trajectory):
-      if self.sample_her_with_replacement:
-        sampled_goals_idx = np.random.choice(achieved_goals_range[i:], self.k, replace=True)
-      if self.sample_her_with_replacement:
-        sampled_goals_idx = np.random.choice(achieved_goals_range[i:], min(self.k, len_ag - i), replace=False)
-      sampled_goals = list(achieved_goals[sampled_goals_idx])
-      for j, g in zip(sampled_goals_idx, sampled_goals):
-        reward = self.compute_reward(achieved_goal, g, None)
-        hindsight_experiences.append([o1, action, reward, o2, reward, g])
-
-        # Sample a landmark value
-        if (j-i) > 1: # More than 1 time steps apart
-          landmark_idx = np.random.choice(range(i+1,j)) # Doesn't include the ith and jth state
-          sampled_landmark = states[landmark_idx]
-          landmark_experiences.append([o1, action, sampled_landmark, g])
-      
-      sampled_actual_goals = random.choices(self.goal_mem, k=self.p)
-      for g in sampled_actual_goals:
-        reward = self.compute_reward(achieved_goal, g, None)
-        hindsight_experiences.append([o1, action, reward, o2, reward, g])
-    return hindsight_experiences, landmark_experiences
-
-class HerFutureAchievedPastAchieved():
-  def __init__(self, k, p, compute_reward, past_goal_memory=10000):
-    self.k = k # future
-    self.p = p # past goals
-    self.compute_reward = compute_reward
-    self.goal_mem=deque(maxlen=past_goal_memory)
-  
-  def __call__(self, trajectory):
-    achieved_goals = np.array([transition[4] for transition in trajectory])
-    for ag in achieved_goals:
-      self.goal_mem.append(ag)
-    len_ag = len(achieved_goals)
-    achieved_goals_range = np.array(range(len_ag))
-    hindsight_experiences = []
-    for i, (o1, action, _, o2, achieved_goal, _) in enumerate(trajectory):
-      sampled_goals = np.random.choice(achieved_goals_range[i:], min(self.k, len_ag - i), replace=False)
-      sampled_goals = list(achieved_goals[sampled_goals])
-      sampled_goals += random.choices(self.goal_mem, k=self.p)
-      for g in sampled_goals:
-        reward = self.compute_reward(achieved_goal, g, None)
-        hindsight_experiences.append([o1, action, reward, o2, reward, g])
-    return hindsight_experiences
-
-
-class HerFutureAchievedPastActualVarying():
-  def __init__(self, k, compute_reward, past_goal_memory=10000):
-    self.k = k # total goals
-    self.compute_reward = compute_reward
-    self.goal_mem=deque(maxlen=past_goal_memory)
-  
-  def __call__(self, trajectory):
-    actual_goal = trajectory[0][5]
-    self.goal_mem.append(actual_goal)
-    achieved_goals = np.array([transition[4] for transition in trajectory])
-    len_ag = len(achieved_goals)
-    achieved_goals_range = np.array(range(len_ag))
-    hindsight_experiences = []
-    for i, (o1, action, _, o2, achieved_goal, _) in enumerate(trajectory):
-      sampled_goals = np.random.choice(achieved_goals_range[i:], min(self.k, len_ag - i), replace=False)
-      sampled_goals = list(achieved_goals[sampled_goals])
-      for g in sampled_goals:
-        if np.random.random() > (float(i) / len_ag + 0.25):
-          # replace the future goal with an actual goal
-          g = random.choice(self.goal_mem)
-        reward = self.compute_reward(achieved_goal, g, None)
-        hindsight_experiences.append([o1, action, reward, o2, reward, g])
-    return hindsight_experiences

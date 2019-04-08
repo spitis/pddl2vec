@@ -131,3 +131,4 @@ embeddings/
 embedding_evaluation/
 alex_code/*.out
 node2vec_heuristic_results/
+test/

@@ -20,7 +20,10 @@ class PddlBasicEnv(gym.Env):
     self.E = embedding_fn(self.task)
 
     self.action_space = spaces.Discrete(1000)
-    self.observation_space = spaces.MultiBinary(len(self.task.facts))
+    if embedding_fn is NaiveEmb:
+      self.observation_space = spaces.MultiBinary(len(self.task.facts))
+    else:
+      self.observation_space = spaces.MultiDiscrete([len(self.task.facts)] * len(self.task.initial_state))
     self.reward_range = (-1., 0.)
 
     self._state = None
