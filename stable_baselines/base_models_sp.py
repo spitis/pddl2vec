@@ -131,12 +131,14 @@ class BaseRLModel(ABC):
           # A list of state representations of all valid successors.
           tuple_obs = tuple(obs)
           if not tuple_obs in self.successor_dict:
-            all_valid_successors = np.array(self.env.get_actions())
-            self.successor_dict[tuple_obs] = all_valid_successors
+            successors, rewards = self.env.get_actions_and_rewards()
+            successors = np.array(successors)
+            rewards = np.array(rewards)
+            self.successor_dict[tuple_obs] = (successors, rewards)
           else:
-            all_valid_successors = self.successor_dict[tuple_obs]
+            successors, _ = self.successor_dict[tuple_obs]
 
-          action, _ = self._get_action_for_single_obs(obs, all_valid_successors)
+          action, _ = self._get_action_for_single_obs(obs, successors)
           new_obs, rewards, done, _ = self.env.step(action)
           done = (steps % max_steps == 0)
 
@@ -257,14 +259,16 @@ class BaseRLModel(ABC):
     
     tuple_obs = tuple(observation)
     if not tuple_obs in self.successor_dict:
-      all_valid_successors = np.array(self.eval_env.get_actions())
-      self.successor_dict[tuple_obs] = all_valid_successors
+      successors, rewards = self.env.get_actions_and_rewards()
+      successors = np.array(successors)
+      rewards = np.array(rewards)
+      self.successor_dict[tuple_obs] = (successors, rewards)
     else:
-      all_valid_successors = self.successor_dict[tuple_obs]
+      successors, _ = self.successor_dict[tuple_obs]
 
-    action, deterministic_action = self._get_action_for_single_obs(observation, all_valid_successors)
+    action, deterministic_action = self._get_action_for_single_obs(observation, successors)
 
-    return action, None
+    return deterministic_action, None
 
   @abstractmethod
   def save(self, save_path):

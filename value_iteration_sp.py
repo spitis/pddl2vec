@@ -16,10 +16,11 @@ class SimpleValueIteration(BaseRLModel):
   def __init__(self,
                env,
                embed_dim=400,
+               layer_sizes=[200,200,1],
                gamma=0.98,
                learning_rate=1e-3,
                *,
-               exploration_fraction=.7,
+               exploration_fraction=.3,
                buffer_size=100000,
                train_freq=10,
                batch_size=512,
@@ -37,6 +38,7 @@ class SimpleValueIteration(BaseRLModel):
     super(SimpleValueIteration, self).__init__(env=env, verbose=verbose)
 
     self.embed_dim = embed_dim
+    self.layer_sizes = layer_sizes
     self.learning_rate = learning_rate
     self.gamma = gamma
 
@@ -74,7 +76,7 @@ class SimpleValueIteration(BaseRLModel):
     # transfer learning)
     self._setup_model()
 
-  def forward_pass(self, obs):
+  def forward_pass(self, obs, layers):
     """Forward passes states obs through the embedding and value networks.
 
         Args:
@@ -100,13 +102,13 @@ class SimpleValueIteration(BaseRLModel):
 
     # The embedding of each state is the average of the embeddings of the
     # facts that are True in it. [batch size, embed dim].
-    state_embeds = tf.reduce_mean(fact_embeds, 1)
+    h = tf.reduce_mean(fact_embeds, 1)
 
     # Now forward pass through the value network.
-    # TODO: Which activation should I use here? None.
-    #h1 = tf.nn.tanh(tf.matmul(state_embeds, self.W_value_network) + self.b_value_network)
-    state_vals = tf.matmul(state_embeds, self.W2_value_network) + self.b2_value_network
-    return state_vals
+    for layer in layers[:-1]:
+      h = tf.nn.relu(layer(h))
+    h = layers[-1](h)
+    return h
 
   def _setup_model(self):
     with SetVerbosity(self.verbose):
@@ -127,67 +129,88 @@ class SimpleValueIteration(BaseRLModel):
             shape=[None, None, len(self.env.observation_space.nvec)],
             dtype=tf.int32,
             name='all_valid_successors_ph')
+        
+        # A batch of all corresponding valid successor states (each is a collaction of facts).
+        all_valid_successors_target_ph = tf.placeholder(
+            shape=[None, None, len(self.env.observation_space.nvec)],
+            dtype=tf.int32,
+            name='all_valid_successors_target_ph')
 
         # The number of given obs, next obs and valid successors given.
         batch_size = tf.shape(obs_ph)[0]
 
-        with tf.variable_scope("embedding_network"):
-          self.W_fact_embed = tf.get_variable(
-              'fact_embed_W',
-              initializer=tf.truncated_normal(
-                  [len(self.env.task.facts), self.embed_dim]))
+        with tf.variable_scope("main_network"):
+          with tf.variable_scope("embedding"):
+            self.W_fact_embed = tf.get_variable(
+                'fact_embed_W',
+                initializer=tf.truncated_normal(
+                    [len(self.env.task.facts), self.embed_dim]))
 
-        with tf.variable_scope("deep_value_iteration"):
-          # Initialize the weights of the value network.
-          self.W_value_network = tf.get_variable(
-              'value_network_W1',
-              initializer=tf.truncated_normal([self.embed_dim, self.embed_dim]))
-          self.b_value_network = tf.get_variable(
-              'value_network_b1', initializer=tf.zeros(self.embed_dim))
-          self.W2_value_network = tf.get_variable(
-              'value_network_W2',
-              initializer=tf.truncated_normal([self.embed_dim, 1]))
-          self.b2_value_network = tf.get_variable(
-              'value_network_b2', initializer=tf.zeros(1))
+          with tf.variable_scope("layers"):
+            # Initialize the weights of the value network.
+            self.layers = []
+            for layer_size in self.layer_sizes:
+              self.layers.append(tf.layers.Dense(layer_size))
 
           # The value of each state in obs_ph. [batch size, 1].
-          self.values = self.forward_pass(obs_ph)
+          self.values = self.forward_pass(obs_ph, self.layers)
 
           # Gather all successors of all states into the batch dim.
           # [num successors of all obs, num total facts].
           all_valid_successors = tf.reshape(all_valid_successors_ph, [-1, len(self.env.observation_space.nvec)])
 
           # [num successors of all obs, 1].
-          all_successor_values = self.forward_pass(all_valid_successors)
+          all_successor_values = self.forward_pass(all_valid_successors, self.layers)
 
           # [batch size, num successors].
           self.all_successor_values = tf.reshape(all_successor_values, [batch_size, -1])
 
+          self.main_vars = tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES, scope=tf.get_variable_scope().name)
+        
+
+        with tf.variable_scope("target_network", reuse=False):
+          with tf.variable_scope("embedding"):
+            self.W_fact_embed = tf.get_variable(
+                'fact_embed_W',
+                initializer=tf.truncated_normal(
+                    [len(self.env.task.facts), self.embed_dim]))
+
+          with tf.variable_scope("layers"):
+            # Initialize the weights of the value network.
+            self.target_layers = []
+            for layer_size in self.layer_sizes:
+              self.target_layers.append(tf.layers.Dense(layer_size))
+
+          # Gather all successors of all states into the batch dim.
+          # [num successors of all obs, num total facts].
+          all_valid_successors = tf.reshape(all_valid_successors_target_ph, [-1, len(self.env.observation_space.nvec)])
+
+          # [num successors of all obs, 1].
+          target_successor_values = self.forward_pass(all_valid_successors, self.target_layers)
+
+          # [batch size, num successors].
+          r_t = tf.placeholder(tf.float32, [None, None], name="reward")
+          target_successor_values = tf.reshape(target_successor_values, [batch_size, -1])
+
+          next_q_values = r_t + self.gamma * (-1 * r_t) * target_successor_values
+
           # The value of each *chosen* successor of states in obs_ph.
           # [batch size, 1].
-          self.next_values = tf.reduce_max(self.all_successor_values, axis=-1, keepdims=True)
+          self.next_values = tf.reduce_max(next_q_values, axis=-1, keepdims=True)
 
-          # Set these to None for now.
-          goal_phs = goal_ph = None
+          self.target_vars = tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES, scope=tf.get_variable_scope().name)
 
-          # For each obs in obs_ph, the index of the action that will
-          # be chosen according to the epsilon-greedy policy.
-          (actions_index, argmax_actions_index) = self.get_argmax_and_epsilon_greedy_actions(
-               self.exploration_fraction)
+        # Set these to None for now.
+        goal_phs = goal_ph = None
+
+        # For each obs in obs_ph, the index of the action that will
+        # be chosen according to the epsilon-greedy policy.
+        (actions_index, argmax_actions_index) = self.get_argmax_and_epsilon_greedy_actions(
+              self.exploration_fraction)
 
         with tf.variable_scope("loss"):
-
-          # Placeholders for bellman equation
-          r_t = tf.placeholder(tf.float32, [None], name="reward")
-          done_mask_ph = tf.placeholder(tf.float32, [None], name="done")
-
-          # gamma
-          pcont_t = tf.constant([self.gamma])
-          #pcont_t = tf.tile(pcont_t, tf.shape(r_t))
-          pcont_t *= -r_t
-
           # Target values based on 1-step bellman.
-          target = tf.clip_by_value(tf.stop_gradient(r_t + pcont_t * self.next_values), -np.inf, 0.)
+          target = tf.clip_by_value(tf.stop_gradient(self.next_values), -np.inf, 0.)
           l2_loss = 0.5 * tf.square(target - self.values)
           mean_l2_loss = tf.reduce_mean(l2_loss)
           tf.summary.scalar("loss", mean_l2_loss)
@@ -207,6 +230,18 @@ class SimpleValueIteration(BaseRLModel):
           with tf.control_dependencies(tf.get_collection(tf.GraphKeys.UPDATE_OPS)):
             training_step = optimizer.apply_gradients(gradients)
 
+        with tf.name_scope('update_target_network_ops'):
+          init_target_network = []
+          update_target_network = []
+          for var, var_target in zip(
+              sorted(self.main_vars, key=lambda v: v.name), sorted(self.target_vars, key=lambda v: v.name)):
+            new_target = self.target_network_update_frac       * var +\
+                         (1 - self.target_network_update_frac) * var_target
+            update_target_network.append(var_target.assign(new_target))
+            init_target_network.append(var_target.assign(var))
+          update_target_network = tf.group(*update_target_network)
+          init_target_network = tf.group(*init_target_network)
+
         with tf.variable_scope("input_info", reuse=False):
           tf.summary.scalar('rewards', tf.reduce_mean(r_t))
 
@@ -214,10 +249,11 @@ class SimpleValueIteration(BaseRLModel):
           self._train_step = training_step
           self._obs_ph = obs_ph
           self._all_valid_successors_ph = all_valid_successors_ph
+          self._all_valid_successors_target_ph = all_valid_successors_target_ph
           self._reward_ph = r_t
-          self._dones_ph = done_mask_ph
           self._act_index = actions_index
           self._argmax_act_index = argmax_actions_index
+          self.update_target_network = update_target_network
           #self._goal_ph = policy.goal_ph
           #self._goal2_ph = target_policy.goal_ph
           #self._is_train_ph = is_train_ph
@@ -238,7 +274,7 @@ class SimpleValueIteration(BaseRLModel):
         # Initialize the parameters and copy them to the target network.
         with tf_util.COMMENT("graph initialization"):
           tf_util.initialize(self.sess)
-          #self.sess.run(self.init_target_network)
+          self.sess.run(init_target_network)
 
           self.summary = tf.summary.merge_all()
 
@@ -407,25 +443,27 @@ class SimpleValueIteration(BaseRLModel):
         else:
           (obses_t, rewards, obses_tp1, dones) = self.replay_buffer.sample(self.batch_size)
 
-        rewards = np.squeeze(rewards, 1)
-        dones = np.squeeze(dones, 1)
 
         #successors = np.expand_dims(obses_tp1, 1)
-        successors = [self.successor_dict[tuple(o)] for o in obses_t]
+        successors_rewards_list = [self.successor_dict[tuple(o)] for o in obses_t]
+        successors, rewards = zip(*successors_rewards_list)
         new_sucs = []
+        new_rews = []
         max_succ_len = max(map(len, successors))
-        for suc in successors:
+        for suc, rew in successors_rewards_list:
           if len(suc) == max_succ_len:
             new_sucs.append(suc)
+            new_rews.append(rew)
           else:
             new_suc = list(suc) + [suc[-1]] * (max_succ_len - len(suc))
-            new_sucs.append(new_suc)
-          
+            new_rew = list(rew) + [rew[-1]] * (max_succ_len - len(suc))
+            new_sucs.append(np.array(new_suc))
+            new_rews.append(np.array(new_rew))
+        
         feed_dict = {
             self._obs_ph: obses_t,
-            self._all_valid_successors_ph: new_sucs,
-            self._reward_ph: rewards,
-            self._dones_ph: dones,
+            self._all_valid_successors_target_ph: new_sucs,
+            self._reward_ph: new_rews,
         }
 
         if goal_agent:
@@ -441,8 +479,8 @@ class SimpleValueIteration(BaseRLModel):
 
         summaries.append(summary)
 
-      # if self.task_step % self.target_network_update_freq == 0:
-      #   self.sess.run(self.update_target_network)
+        if self.task_step % self.target_network_update_freq == 0:
+          self.sess.run(self.update_target_network)
 
     return summaries
 

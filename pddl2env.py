@@ -49,6 +49,9 @@ class PddlBasicEnv(gym.Env):
   def get_actions(self):
     return [self.E.state_to_emb(a) for a in self._actions]
 
+  def get_actions_and_rewards(self):
+    return zip(*[(self.E.state_to_emb(a), int(self.task.goal_reached(a))-1) for a in self._actions])
+
   def reset(self):
     self._state = self.task.initial_state
     self._actions = [
