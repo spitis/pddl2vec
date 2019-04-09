@@ -259,7 +259,7 @@ class BaseRLModel(ABC):
     
     tuple_obs = tuple(observation)
     if not tuple_obs in self.successor_dict:
-      successors, rewards = self.env.get_actions_and_rewards()
+      successors, rewards = self.eval_env.get_actions_and_rewards()
       successors = np.array(successors)
       rewards = np.array(rewards)
       self.successor_dict[tuple_obs] = (successors, rewards)
