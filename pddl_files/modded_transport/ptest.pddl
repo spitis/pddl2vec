@@ -18,8 +18,6 @@
  (:init
   (capacity-predecessor capacity-0 capacity-1)
   (capacity-predecessor capacity-1 capacity-2)
-  (capacity-predecessor capacity-2 capacity-3)
-  (capacity-predecessor capacity-3 capacity-4)
   (road city-loc-3 city-loc-1)
   (road city-loc-1 city-loc-3)
   (road city-loc-2 city-loc-3)
@@ -27,7 +25,7 @@
   (at package-1 city-loc-1)
   (at package-2 city-loc-2)
   (at truck-1 city-loc-3)
-  (capacity truck-1 capacity-4)
+  (capacity truck-1 capacity-2)
  )
  (:goal (and
   (at package-1 city-loc-3)
