@@ -46,6 +46,7 @@ def perform_search(task, heuristic):
     return {
         "time": time_taken,
         "expansions": expansions,
+        "solution length": len(solution)
     }
 
 
