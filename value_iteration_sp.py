@@ -2,6 +2,7 @@ import tensorflow as tf
 import numpy as np
 import gym
 import copy
+import os
 
 from itertools import chain
 
@@ -11,6 +12,9 @@ import stable_baselines.tf_util as tf_util
 from stable_baselines.replay_buffer import ReplayBuffer, EpisodicBuffer, her_future, HerFutureAchievedPastActual
 
 tf.flags.DEFINE_string('tensorboard_log', './test/', 'Where to store the logs.')
+tf.flags.DEFINE_string('ckpt_dir', './test/', 'Where to store the checkpoints.')
+tf.flags.DEFINE_string('restore_dir', '', 'The location from where to grab '
+    'and restore the latest checkpoint.')
 FLAGS = tf.flags.FLAGS
 
 
@@ -35,6 +39,8 @@ class SimpleValueIteration(BaseRLModel):
                grad_norm_clipping=1.,
                verbose=1,
                tensorboard_log=None,
+               ckpt_dir=None,
+               restore_dir=None,
                eval_env=None,
                eval_every=100):
 
@@ -61,6 +67,8 @@ class SimpleValueIteration(BaseRLModel):
     self.grad_norm_clipping = grad_norm_clipping
 
     self.tensorboard_log = tensorboard_log
+    self.ckpt_dir = ckpt_dir
+    self.restore_dir = restore_dir
     self.eval_env = eval_env
     self.eval_every = eval_every
 
@@ -117,8 +125,7 @@ class SimpleValueIteration(BaseRLModel):
     with SetVerbosity(self.verbose):
       self.graph = tf.Graph()
       with self.graph.as_default():
-        self.sess = tf_util.make_session(graph=self.graph)
-
+        
         # Placeholders.
 
         # A batch of states, each represented as a collection of facts.
@@ -126,13 +133,13 @@ class SimpleValueIteration(BaseRLModel):
             shape=[None, len(self.env.observation_space.nvec)],
             dtype=tf.int32,
             name='obs_ph')
-        
+
         # A batch of all corresponding valid successor states (each is a collaction of facts).
         all_valid_successors_ph = tf.placeholder(
             shape=[None, None, len(self.env.observation_space.nvec)],
             dtype=tf.int32,
             name='all_valid_successors_ph')
-        
+
         # A batch of all corresponding valid successor states (each is a collaction of facts).
         all_valid_successors_target_ph = tf.placeholder(
             shape=[None, None, len(self.env.observation_space.nvec)],
@@ -169,7 +176,6 @@ class SimpleValueIteration(BaseRLModel):
           self.all_successor_values = tf.reshape(all_successor_values, [batch_size, -1])
 
           self.main_vars = tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES, scope=tf.get_variable_scope().name)
-        
 
         with tf.variable_scope("target_network", reuse=False):
           with tf.variable_scope("embedding"):
@@ -274,12 +280,28 @@ class SimpleValueIteration(BaseRLModel):
         with tf_util.COMMENT("attribute assignments:"):
           self._summary_op = tf.summary.merge_all()
 
+        # Create an object for saving model checkpoints.
+        if self.ckpt_dir is not None:
+          self.saver = tf.train.Saver(max_to_keep=10)
+          if not os.path.isdir(self.ckpt_dir):
+            os.makedirs(self.ckpt_dir)
+
+        # Now initialize a session.
+        self.sess = tf_util.make_session(graph=self.graph)
+
         # Initialize the parameters and copy them to the target network.
         with tf_util.COMMENT("graph initialization"):
           tf_util.initialize(self.sess)
+
+          # If specified, restore the weights from a pretrained model.
+          if self.restore_dir:
+            restore_from = tf.train.latest_checkpoint(self.restore_dir)
+            self.saver.restore(self.sess, restore_from)
+            print('Restored weights from {}'.format(restore_from))
+
           self.sess.run(init_target_network)
 
-          self.summary = tf.summary.merge_all()
+          self.summary = tf.summary.merge_all() 
 
   def _setup_new_task(self, total_timesteps):
     """Sets up new task.
@@ -288,8 +310,8 @@ class SimpleValueIteration(BaseRLModel):
         """
     self.task_step = 0
 
-    items = [("observations0", (self.observation_space.shape[0],)), 
-              ("rewards", (1,)), 
+    items = [("observations0", (self.observation_space.shape[0],)),
+              ("rewards", (1,)),
               ("observations1", (self.observation_space.shape[0],)),
               ("terminals1", (1,))]
 
@@ -464,7 +486,7 @@ class SimpleValueIteration(BaseRLModel):
             new_rew = list(rew) + [rew[-1]] * (max_succ_len - len(suc))
             new_sucs.append(np.array(new_suc))
             new_rews.append(np.array(new_rew))
-        
+
         feed_dict = {
             self._obs_ph: obses_t,
             self._all_valid_successors_target_ph: new_sucs,
@@ -543,5 +565,6 @@ if __name__ == '__main__':
       domain='pddl_files/modded_transport/domain.pddl',
       instance='pddl_files/modded_transport/ptest.pddl')
   eval_env = copy.deepcopy(env)
-  model = SimpleValueIteration(env=env, tensorboard_log=FLAGS.tensorboard_log, eval_env=eval_env)
+  model = SimpleValueIteration(env=env, tensorboard_log=FLAGS.tensorboard_log, 
+      ckpt_dir=FLAGS.ckpt_dir, restore_dir=FLAGS.restore_dir, eval_env=eval_env)
   model.learn(total_timesteps=1000000, max_steps=50, tb_log_name='value_iteration')

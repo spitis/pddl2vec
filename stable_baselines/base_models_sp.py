@@ -109,8 +109,17 @@ class BaseRLModel(ABC):
     """Assumes VecEnv"""
 
     print("$&$ YAY YOU ARE USING THE CORRECT STABLE BASELINES #&#")
+
+    if self.ckpt_dir is not None:
+      save_logname = TensorboardWriter(self.graph, self.tensorboard_log,
+          tb_log_name).tb_log_name
+      latest_run_id = TensorboardWriter(self.graph, self.tensorboard_log,
+          tb_log_name)._get_latest_run_id()
+      save_logname = save_logname + '_' + str(latest_run_id + 1)
+    
     with SetVerbosity(self.verbose), TensorboardWriter(
         self.graph, self.tensorboard_log, tb_log_name) as writer:
+      
       self.writer = writer
       self._setup_new_task(total_timesteps=total_timesteps)
 
@@ -133,9 +142,11 @@ class BaseRLModel(ABC):
             f.write("{} - {}\n".format(atr, val))
 
       steps = 0
+      global_step = 0
       with open(os.path.join(data_path, 'test_results.txt'), 'w') as f:
         for _ in range(total_timesteps):
           steps +=1 
+          global_step += 1
 
           # A list of state representations of all valid successors.
           tuple_obs = tuple(obs)
@@ -237,6 +248,12 @@ class BaseRLModel(ABC):
               logger.dump_tabular()
 
           if steps % max_steps == 0:
+            # Save a model checkpoint.
+            if self.ckpt_dir is not None:
+              save_loc = os.path.join(
+                self.ckpt_dir, 
+                os.path.join(save_logname , 'model_%d.ckpt' % global_step)) 
+              self.saver.save(self.sess, save_loc)
             steps = 0
             obs = self.env.reset()
           else:
