@@ -10,6 +10,9 @@ from stable_baselines.base_models_sp import BaseRLModel, SetVerbosity
 import stable_baselines.tf_util as tf_util
 from stable_baselines.replay_buffer import ReplayBuffer, EpisodicBuffer, her_future, HerFutureAchievedPastActual
 
+tf.flags.DEFINE_string('tensorboard_log', './test/', 'Where to store the logs.')
+FLAGS = tf.flags.FLAGS
+
 
 class SimpleValueIteration(BaseRLModel):
 
@@ -285,8 +288,10 @@ class SimpleValueIteration(BaseRLModel):
         """
     self.task_step = 0
 
-    items = [("observations0", self.observation_space.shape[0]), ("rewards", (1,)), 
-              ("observations1", self.observation_space.shape[0]), ("terminals1", (1,))]
+    items = [("observations0", (self.observation_space.shape[0],)), 
+              ("rewards", (1,)), 
+              ("observations1", (self.observation_space.shape[0],)),
+              ("terminals1", (1,))]
 
     if self.goal_space is not None:
       if not isinstance(self.goal_space, gym.spaces.tuple_space.Tuple):
@@ -538,5 +543,5 @@ if __name__ == '__main__':
       domain='pddl_files/modded_transport/domain.pddl',
       instance='pddl_files/modded_transport/ptest.pddl')
   eval_env = copy.deepcopy(env)
-  model = SimpleValueIteration(env=env, tensorboard_log='./test/', eval_env=eval_env)
+  model = SimpleValueIteration(env=env, tensorboard_log=FLAGS.tensorboard_log, eval_env=eval_env)
   model.learn(total_timesteps=1000000, max_steps=50, tb_log_name='value_iteration')
