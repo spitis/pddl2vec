@@ -7,7 +7,7 @@ import logging
 from settings import ROOT_DIR
 
 parser = ArgumentParser()
-parser.add_argument("--graph-file", default="logistics/38/prob31.edgelist", type=str)
+parser.add_argument("--graph-file", default="logistics/43/problogistics-6-1.edgelist", type=str)
 parser.add_argument("--d", default=128, type=int)
 parser.add_argument("--l", default=80, type=int)
 parser.add_argument("--r", default=10, type=int)
@@ -45,7 +45,7 @@ def main(args):
     if args.directed == "dr":
         cmd.append("dr")
     
-    exitcode = subprocess.call(cmd, stdout=subprocess.PIPE)
+    exitcode = subprocess.call(cmd)
 
     if exitcode == 0:
         print('Node2Vec Complete')
