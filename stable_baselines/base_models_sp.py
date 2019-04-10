@@ -37,10 +37,19 @@ class BaseRLModel(ABC):
 
     if env is not None:
       assert not isinstance(env, str)
-
+      
+      # Get gym's version.
+      version = gym.__version__  # e.g. '0.12.1'
+      version = version[version.index('.') + 1 :]  # e.g. '12.1'
+      version = int(version[: version.index('.')])  # e.g. 12
+      if version < 12:
+        gym_spaces_dict = gym.spaces.dict_space.Dict
+      else:
+        gym_spaces_dict = gym.spaces.Dict 
+      
       # Check if the environment is a goal-oriented type based on their observation space
       # Goal oriented Gym space have observation_space as dict
-      if type(env.observation_space) == gym.spaces.dict_space.Dict:
+      if type(env.observation_space) == gym_spaces_dict:
         self.observation_space = env.observation_space.spaces["observation"]
         # Assume that desired and achieved goal have the same space
         self.goal_space = env.observation_space.spaces["desired_goal"]
