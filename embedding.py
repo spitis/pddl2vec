@@ -69,7 +69,7 @@ class IntegerEmb(PddlEmb):
   """
 
   def __init__(self, task):
-    self.facts = tuple(task.facts)
+    self.facts = sorted(tuple(task.facts))
     self.facts_arr = np.array(self.facts)
     self.dims = len(self.facts)
     self.fact_idxs = {f: i for i, f in enumerate(self.facts)}
