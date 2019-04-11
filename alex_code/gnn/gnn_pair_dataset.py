@@ -4,16 +4,15 @@ from torch_geometric.data import InMemoryDataset, Data
 
 from alex_code.utils.save import read_pickle
 
-class GNNPairDataset(InMemoryDataset):
+class GNNPairDatasetDisk(InMemoryDataset):
     """
 
     """
 
-    def __init__(self, graph_path, node_mapping_path, goal_path, transform=None):
-        super(GNNPairDataset, self).__init__(graph_path, transform, None, None)
+    def __init__(self, graph_path, goal_path, transform=None):
+        super(GNNPairDatasetDisk, self).__init__(graph_path, transform, None, None)
 
         G = read_pickle(graph_path)
-        node_mapping = read_pickle(node_mapping_path)
         goal = read_pickle(goal_path)
 
         adj = nx.to_scipy_sparse_matrix(G).tocoo()
@@ -31,8 +30,45 @@ class GNNPairDataset(InMemoryDataset):
 
         data.x = x
 
-        self.node_mapping = node_mapping
         self.goal = goal
+        self.data, self.slices = self.collate([data])
+        self.G = G
+
+    def _download(self):
+        return
+
+    def _process(self):
+        return
+
+    def __repr__(self):
+        return '{}()'.format(self.__class__.__name__)
+
+
+class GNNPairDatasetMemory(InMemoryDataset):
+    """
+
+    """
+
+    def __init__(self, graph, transform=None):
+        super(GNNPairDatasetMemory, self).__init__(transform, None, None)
+
+        G = graph
+
+        adj = nx.to_scipy_sparse_matrix(G).tocoo()
+        row = torch.from_numpy(adj.row).to(torch.long)
+        col = torch.from_numpy(adj.col).to(torch.long)
+        edge_index = torch.stack([row, col], dim=0)
+        data = Data(edge_index=edge_index)
+
+        x = []
+
+        for key, item in nx.get_node_attributes(G, "counts").items():
+            x.append(item)
+
+        x = torch.tensor(x).float()
+
+        data.x = x
+
         self.data, self.slices = self.collate([data])
         self.G = G
 

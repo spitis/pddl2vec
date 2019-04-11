@@ -11,7 +11,6 @@ class RegressionGCN(torch.nn.Module):
         super(RegressionGCN, self).__init__()
         self.conv1 = GCNConv(num_features, 25)
         self.conv2 = GCNConv(25, 10)
-        self.conv3 = GCNConv(10, 8)
 
     def forward(self, x, edge_index):
         features = self.extract_features(x, edge_index)
@@ -23,7 +22,5 @@ class RegressionGCN(torch.nn.Module):
         x = F.relu(x)
         x = F.dropout(x, training=self.training)
         x = self.conv2(x, edge_index)
-        x = F.relu(x)
-        x = self.conv3(x, edge_index)
 
         return x

@@ -193,3 +193,12 @@ def get_action_counts(problem, task, state):
 def get_counts(problem, task, state):
     return get_predicate_counts(problem, task, state) + get_action_counts(problem, task, state)
 
+
+def get_neighbours(task, node):
+    neighbours = []
+
+    for operator, successor_state in task.get_successor_states(
+            node.state):
+        neighbours.append(successor_state)
+
+    return neighbours

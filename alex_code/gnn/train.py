@@ -7,7 +7,7 @@ import logging
 from settings import ROOT_DIR
 from alex_code.gnn.gnn_pair_dataset import get_pairs
 
-from alex_code.gnn.gnn_pair_dataset import GNNPairDataset
+from alex_code.gnn.gnn_pair_dataset import GNNPairDatasetDisk
 from alex_code.gnn.regression import RegressionGCN
 from alex_code.utils.similarity import euclidean_distance
 
@@ -27,7 +27,7 @@ def train(dataset):
 
     model.train()
 
-    for epoch in range(500):
+    for epoch in range(75):
         left, right, distance, edge_index = get_pairs(dataset, device)
         optimizer.zero_grad()
 
@@ -69,9 +69,6 @@ def main(args):
     goal_file = os.environ.get("GOAL_FILE")
     goal_path = os.path.join(graph_dir, goal_file.format(problem_name=problem_name))
 
-    node_mapping_file = os.environ.get("NODE_MAPPING_FILE")
-    node_mapping_path = os.path.join(graph_dir, node_mapping_file.format(problem_name=problem_name))
-
     model_dir = os.environ.get("GNN_MODEL_DIR")
     model_dir = os.path.join(ROOT_DIR, model_dir, os.path.dirname(args.graph_path))
 
@@ -81,7 +78,7 @@ def main(args):
     model_file = os.environ.get("GNN_MODEL_FILE")
     model_path = os.path.join(model_dir, model_file.format(problem_name=problem_name))
 
-    gnn_pair_dataset = GNNPairDataset(graph_path, node_mapping_path, goal_path)
+    gnn_pair_dataset = GNNPairDatasetDisk(graph_path, goal_path)
 
     model = train(gnn_pair_dataset)
 
