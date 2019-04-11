@@ -48,7 +48,10 @@ def main(args):
     print("Generating graph for: {}".format(args.problem_path))
 
     G, goal_node, counts = expand_state_space_gnn(problem, task)
+    node_mapping = {n: i for i, n in enumerate(list(G.nodes))}
     nx.set_node_attributes(G, counts, "counts")
+
+    print(list(G.nodes)[:100])
 
     graph_dir = os.environ.get("GNN_GRAPH_DIR")
     graph_dir = os.path.join(ROOT_DIR, graph_dir, os.path.dirname(args.problem_path))
@@ -57,6 +60,9 @@ def main(args):
 
     graph_file = os.environ.get("GNN_GRAPH_FILE")
     graph_file = os.path.join(graph_dir, graph_file.format(problem_name=problem_name))
+
+    node_mapping_file = os.environ.get("NODE_MAPPING_FILE")
+    node_mapping_file = os.path.join(graph_dir, node_mapping_file.format(problem_name=problem_name))
 
     goal_file = os.environ.get("GOAL_FILE")
     goal_file = os.path.join(graph_dir, goal_file.format(problem_name=problem_name))
@@ -67,6 +73,7 @@ def main(args):
         os.makedirs(graph_dir)
 
     write_pickle(G, graph_file)
+    write_pickle(node_mapping, node_mapping_file)
     write_pickle(goal_state, goal_file)
 
 
