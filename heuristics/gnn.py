@@ -63,11 +63,26 @@ class GNNHeuristic(Heuristic):
 
         nx.set_node_attributes(G, counts, "counts")
 
+        node_mapping = {n: i for i, n in enumerate(list(G.nodes))}
+
+        final_G = nx.Graph()
+
+        for edge in list(G.edges):
+            final_G.add_edge(node_mapping[edge[0]], node_mapping[edge[1]])
+
+        final_counts = {}
+
+        for key, value in counts.items():
+            final_counts[node_mapping[key]] = value
+
+        nx.set_node_attributes(final_G, final_counts, "counts")
+        G = final_G
+
         pair_dataset = GNNPairDatasetMemory(G)
         pair_dataset.data = pair_dataset.data.to(self.device)
         embedding = self.gnn(pair_dataset.data.x, pair_dataset.data.edge_index)
 
-        return embedding
+        return embedding[node_mapping[hash_state(node.state)]]
 
     def generate_goal_embedding(self):
         G = nx.Graph()
@@ -83,9 +98,9 @@ class GNNHeuristic(Heuristic):
             counts[hash_state(neighbour)] = get_counts(self.problem, self.task, neighbour)
 
         for neighbour in neighbours:
-            root = searchspace.make_root_node(neighbour)
+            temp = searchspace.make_root_node(neighbour)
 
-            second_level = get_neighbours_regression(self.task, root)
+            second_level = get_neighbours_regression(self.task, temp)
 
             for sec in second_level:
                 G.add_edge(hash_state(neighbour), hash_state(sec))
@@ -94,9 +109,24 @@ class GNNHeuristic(Heuristic):
 
         nx.set_node_attributes(G, counts, "counts")
 
+        node_mapping = {n: i for i, n in enumerate(list(G.nodes))}
+
+        final_G = nx.Graph()
+
+        for edge in list(G.edges):
+            final_G.add_edge(node_mapping[edge[0]], node_mapping[edge[1]])
+
+        final_counts = {}
+
+        for key, value in counts.items():
+            final_counts[node_mapping[key]] = value
+
+        nx.set_node_attributes(final_G, final_counts, "counts")
+        G = final_G
+
         pair_dataset = GNNPairDatasetMemory(G)
         pair_dataset.data = pair_dataset.data.to(self.device)
         goal_embedding = self.gnn(pair_dataset.data.x, pair_dataset.data.edge_index)
 
-        return goal_embedding
+        return goal_embedding[node_mapping[hash_state(root.state)]]
 

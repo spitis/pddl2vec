@@ -171,6 +171,9 @@ def get_action_counts(problem, task, state):
     relevant_counts = {action: 0 for action in sorted(problem.domain.actions.keys())}
 
     for op in task.operators:
+        if not op.applicable(state):
+            continue
+
         parsed = op.name[1: -1]
         parsed = parsed.split(" ")[0]
 
@@ -199,7 +202,8 @@ def get_neighbours_forward(task, node):
 
     for operator, successor_state in task.get_successor_states(
             node.state):
-        neighbours.append(successor_state)
+        new_node = searchspace.make_child_node(node, operator, successor_state)
+        neighbours.append(new_node)
 
     return neighbours
 
@@ -223,7 +227,7 @@ def get_neighbours_regression(task, node):
         if not effect_consistent:
             continue
 
-        new_state = op.preconditions + (node.state - op.add_effects) + op.del_effects
+        new_state = op.preconditions | (node.state - op.add_effects) | op.del_effects
 
         neighbours.append(new_state)
 
