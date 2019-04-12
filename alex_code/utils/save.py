@@ -1,3 +1,4 @@
+from datetime import datetime
 import _pickle as pickle
 import json
 
@@ -18,3 +19,7 @@ def read_json(file_path):
         temp = json.load(f)
 
     return temp
+
+
+def get_time():
+    return datetime.now().strftime("%Y-%m-%d_%H-%M-%S")

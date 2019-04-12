@@ -177,11 +177,10 @@ def get_action_counts(problem, task, state):
         parsed = op.name[1: -1]
         parsed = parsed.split(" ")[0]
 
-        if len(op.add_effects.intersection(task.goals)) > 0 and op.applicable(state):
+        if len(op.add_effects.intersection(task.goals)) > 0:
             binary_counts[parsed] = 1
 
-        if op.applicable(state):
-            relevant_counts[parsed] += len(op.add_effects.intersection(task.goals))
+        relevant_counts[parsed] += len(op.add_effects.intersection(task.goals))
 
     binary_list = []
     relevant_list = []
