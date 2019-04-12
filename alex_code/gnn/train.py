@@ -1,5 +1,6 @@
 from argparse import ArgumentParser
 from dotenv import load_dotenv, find_dotenv
+import json
 import os
 import subprocess
 import logging
@@ -27,8 +28,8 @@ def train(dataset):
 
     model.train()
 
-    for epoch in range(75):
-        left, right, distance, edge_index = get_pairs(dataset, device)
+    for epoch in range(500):
+        left, right, distance, edge_index = get_pairs(dataset, device, num_pairs=1000)
         optimizer.zero_grad()
 
         out = model(dataset.data.x, edge_index)
@@ -69,6 +70,9 @@ def main(args):
     goal_file = os.environ.get("GOAL_FILE")
     goal_path = os.path.join(graph_dir, goal_file.format(problem_name=problem_name))
 
+    node_mapping_file = os.environ.get("NODE_MAPPING_FILE")
+    node_mapping_path = os.path.join(graph_dir, node_mapping_file.format(problem_name=problem_name))
+
     model_dir = os.environ.get("GNN_MODEL_DIR")
     model_dir = os.path.join(ROOT_DIR, model_dir, os.path.dirname(args.graph_path))
 
@@ -78,13 +82,19 @@ def main(args):
     model_file = os.environ.get("GNN_MODEL_FILE")
     model_path = os.path.join(model_dir, model_file.format(problem_name=problem_name))
 
-    gnn_pair_dataset = GNNPairDatasetDisk(graph_path, goal_path)
+    gnn_pair_dataset = GNNPairDatasetDisk(graph_path, node_mapping_path, goal_path)
 
     model = train(gnn_pair_dataset)
 
-    torch.save(model.state_dict(), model_path)
+    stats_file = os.environ.get("GNN_STATS_FILE")
+    stats_path = os.path.join(model_dir, stats_file.format(problem_name=problem_name))
 
-    print("temp")
+    stats = {"num_features": gnn_pair_dataset.data.num_features}
+
+    with open(stats_path, "w") as fp:
+        json.dump(stats, fp, indent=4, sort_keys=True)
+
+    torch.save(model.state_dict(), model_path)
 
 
 if __name__ == "__main__":

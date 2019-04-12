@@ -194,11 +194,37 @@ def get_counts(problem, task, state):
     return get_predicate_counts(problem, task, state) + get_action_counts(problem, task, state)
 
 
-def get_neighbours(task, node):
+def get_neighbours_forward(task, node):
     neighbours = []
 
     for operator, successor_state in task.get_successor_states(
             node.state):
         neighbours.append(successor_state)
+
+    return neighbours
+
+
+def get_neighbours_regression(task, node):
+    neighbours = []
+
+    for op in task.operators:
+        effect_consistent = True
+
+        for add in op.add_effects:
+            if add not in node.state:
+                effect_consistent = False
+                break
+
+        for delete in op.del_effects:
+            if delete in node.state:
+                effect_consistent = False
+                break
+
+        if not effect_consistent:
+            continue
+
+        new_state = op.preconditions + (node.state - op.add_effects) + op.del_effects
+
+        neighbours.append(new_state)
 
     return neighbours

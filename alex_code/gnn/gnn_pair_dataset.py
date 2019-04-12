@@ -9,10 +9,11 @@ class GNNPairDatasetDisk(InMemoryDataset):
 
     """
 
-    def __init__(self, graph_path, goal_path, transform=None):
+    def __init__(self, graph_path, node_mapping_path, goal_path, transform=None):
         super(GNNPairDatasetDisk, self).__init__(graph_path, transform, None, None)
 
         G = read_pickle(graph_path)
+        node_mapping = read_pickle(node_mapping_path)
         goal = read_pickle(goal_path)
 
         adj = nx.to_scipy_sparse_matrix(G).tocoo()
@@ -30,6 +31,7 @@ class GNNPairDatasetDisk(InMemoryDataset):
 
         data.x = x
 
+        self.node_mapping = node_mapping
         self.goal = goal
         self.data, self.slices = self.collate([data])
         self.G = G
@@ -50,7 +52,7 @@ class GNNPairDatasetMemory(InMemoryDataset):
     """
 
     def __init__(self, graph, transform=None):
-        super(GNNPairDatasetMemory, self).__init__(transform, None, None)
+        super(GNNPairDatasetMemory, self).__init__("", transform, None, None)
 
         G = graph
 
