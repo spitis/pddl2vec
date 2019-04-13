@@ -94,8 +94,12 @@ def gen_primes():
         q += 1
         
 
-def expand_state_space_gnn(problem, planning_task, limit=1000000):
-    G = nx.Graph()
+def expand_state_space_gnn(problem, planning_task, directed, limit=1000000):
+    if directed == "directed":
+        G = nx.DiGraph()
+    else:
+        G = nx.Graph()
+
     counts = {}
     iteration = 0
     # fifo-queue storing the nodes which are next to explore

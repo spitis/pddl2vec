@@ -25,18 +25,18 @@ def find_weight_dict(models_dir, problem_name, args):
         else:
             model_path = os.path.join(temp, os.environ.get("GNN_MODEL_FILE"))
 
-            return model_path, stats_path
+            return model_path, stats_path, d
 
         return None
 
 
 def dictionary_subset(d1, d2):
     for k1, v1 in d1.items():
-        if "file" or "path" in k1:
+        if "file" in k1 or "path" in k1:
             continue
 
         if k1 not in d2.keys():
-            continue
+            return False
 
         if v1 != d2[k1]:
             return False

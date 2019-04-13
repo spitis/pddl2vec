@@ -14,6 +14,7 @@ from alex_code.utils.save import write_pickle
 parser = ArgumentParser()
 parser.add_argument("--domain-path", default="logistics/43/domain.pddl", type=str)
 parser.add_argument("--problem-path", default="logistics/43/problogistics-6-1.pddl", type=str)
+parser.add_argument("--directed", default="undirected", type=str, choices=["directed", "undirected"])
 
 
 def generate_token_mapping(problem):
@@ -47,7 +48,7 @@ def main(args):
 
     print("Generating graph for: {}".format(args.problem_path))
 
-    G, goal_node, counts = expand_state_space_gnn(problem, task)
+    G, goal_node, counts = expand_state_space_gnn(problem, task, args.directed)
     node_mapping = {n: i for i, n in enumerate(list(G.nodes))}
     nx.set_node_attributes(G, counts, "counts")
 
@@ -59,13 +60,16 @@ def main(args):
     problem_name = os.path.basename(args.problem_path).split(".")[0]
 
     graph_file = os.environ.get("GNN_GRAPH_FILE")
-    graph_file = os.path.join(graph_dir, graph_file.format(problem_name=problem_name))
+    graph_file = os.path.join(graph_dir, graph_file.format(problem_name=problem_name,
+                                                           directed=args.directed))
 
-    node_mapping_file = os.environ.get("NODE_MAPPING_FILE")
-    node_mapping_file = os.path.join(graph_dir, node_mapping_file.format(problem_name=problem_name))
+    node_mapping_file = os.environ.get("GNN_NODE_MAPPING_FILE")
+    node_mapping_file = os.path.join(graph_dir, node_mapping_file.format(problem_name=problem_name,
+                                                                         directed=args.directed))
 
-    goal_file = os.environ.get("GOAL_FILE")
-    goal_file = os.path.join(graph_dir, goal_file.format(problem_name=problem_name))
+    goal_file = os.environ.get("GNN_GOAL_FILE")
+    goal_file = os.path.join(graph_dir, goal_file.format(problem_name=problem_name,
+                                                         directed=args.directed))
 
     goal_state = task.goals
 
