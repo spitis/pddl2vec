@@ -18,10 +18,18 @@ from alex_code.utils.save import read_pickle, read_json
 from alex_code.gnn.regression import RegressionGCN
 from alex_code.compute_baselines import wrapper, solve_problem
 
+from alex_code.utils.load import find_weight_dict
+
 parser = ArgumentParser()
 parser.add_argument("--domain-file", default="logistics/43/domain.pddl", type=str)
 parser.add_argument("--problem-file", default="logistics/43/problogistics-6-1.pddl", type=str)
 parser.add_argument("--graph-path", default="logistics/43/problogistics-6-1.p", type=str)
+
+parser.add_argument("--epochs", default=200, dest="epochs", type=int)
+parser.add_argument("--batch-size", default=1000, dest="batch_size", type=int)
+parser.add_argument("--normalization", default="normalize", dest="normalization", choices=["none", "normalize"])
+parser.add_argument("--seed", default=219, dest="seed")
+parser.add_argument("--lr", default=0.01, dest="lr", type=float)
 
 
 def main(args):
@@ -38,14 +46,10 @@ def main(args):
     problem = _parse(domain_file=domain_file, problem_file=problem_file)
     task = _ground(problem)
 
-    model_dir = os.environ.get("GNN_MODEL_DIR")
-    model_dir = os.path.join(ROOT_DIR, model_dir, os.path.dirname(args.graph_path))
+    models_dir = os.environ.get("GNN_MODEL_DIR")
+    models_dir = os.path.join(ROOT_DIR, models_dir, os.path.dirname(args.graph_path))
 
-    model_file = os.environ.get("GNN_MODEL_FILE")
-    model_path = os.path.join(model_dir, model_file.format(problem_name=problem_name))
-
-    stats_file = os.environ.get("GNN_STATS_FILE")
-    stats_path = os.path.join(model_dir, stats_file.format(problem_name=problem_name))
+    model_path, stats_path = find_weight_dict(models_dir, problem_name, args)
 
     stats = read_json(stats_path)
     state_dict = torch.load(model_path)

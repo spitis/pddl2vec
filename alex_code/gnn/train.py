@@ -16,20 +16,25 @@ from alex_code.utils.save import get_time
 import torch
 import torch.nn.functional as F
 
+import torch_geometric.transforms as T
+
 parser = ArgumentParser()
 parser.add_argument("--graph-path", default="logistics/43/problogistics-6-1.p", type=str)
-parser.add_argument("--epochs", default=2, dest="epochs", type=int)
-parser.add_argument("--batch-size", default=100, dest="batch_size", type=int)
-parser.add_argument("--normalization", default=None, dest="normalilzation")
+parser.add_argument("--epochs", default=200, dest="epochs", type=int)
+parser.add_argument("--batch-size", default=1000, dest="batch_size", type=int)
+parser.add_argument("--normalization", default="normalize", dest="normalization", choices=["none", "normalize"])
 parser.add_argument("--seed", default=219, dest="seed")
 parser.add_argument("--lr", default=0.01, dest="lr", type=float)
-
 
 
 def train(dataset, args):
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     model = RegressionGCN(dataset.data.num_features).to(device)
     dataset.data = dataset.data.to(device)
+
+    if args.normalization != "none":
+        dataset.data = T.NormalizeFeatures()(dataset.data)
+
     optimizer = torch.optim.Adam(model.parameters(), lr=args.lr, weight_decay=5e-5)
 
     model.train()
@@ -91,15 +96,15 @@ def main(args):
     model_folder = os.path.join(models_dir, model_folder.format(problem_name=problem_name,
                                                                 timestamp=get_time()))
 
-    if not os.path.exists(model_folder):
-        os.makedirs(model_folder)
-
     model_file = os.environ.get("GNN_MODEL_FILE")
     model_path = os.path.join(model_folder, model_file)
 
     gnn_pair_dataset = GNNPairDatasetDisk(graph_path, node_mapping_path, goal_path)
 
     model = train(gnn_pair_dataset, args)
+
+    if not os.path.exists(model_folder):
+        os.makedirs(model_folder)
 
     stats_file = os.environ.get("GNN_STATS_FILE")
     stats_path = os.path.join(model_folder, stats_file)
