@@ -16,27 +16,31 @@ epochs=(100 200 500)
 batch_sizes=(100 1000 10000)
 lrs=(1.0 0.1 0.01 0.001)
 normalizations=(none normalize)
+directions=(undirected directed)
 
 count=0
 
-for epoch in ${epochs[@]}
+for direction in ${directions[@]}
 do
-    for batch_size in ${batch_sizes[@]}
+    for epoch in ${epochs[@]}
     do
-        for lr in ${lrs[@]}
+        for batch_size in ${batch_sizes[@]}
         do
-            for normalization in ${normalizations[@]}
+            for lr in ${lrs[@]}
             do
-                python -u gnn/train.py --epochs=$epochs --batch-size=$batch_size --lr=$lr --normalization=$normalization &
-                count=$(( count + 1 ))
+                for normalization in ${normalizations[@]}
+                do
+                    python -u gnn/train.py --epochs=$epochs --batch-size=$batch_size --lr=$lr --normalization=$normalization --directed=$direction &
+                    count=$(( count + 1 ))
 
-                sleep 2
+                    sleep 2
 
-                if [ ${count} -gt 3 ]
-                then
-                    count=0
-                    wait
-                fi
+                    if [ ${count} -gt 3 ]
+                    then
+                        count=0
+                        wait
+                    fi
+                done
             done
         done
     done

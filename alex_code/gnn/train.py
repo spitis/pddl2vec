@@ -7,7 +7,7 @@ import subprocess
 import logging
 
 from settings import ROOT_DIR
-from alex_code.gnn.gnn_pair_dataset import get_pairs
+from alex_code.gnn.gnn_pair_dataset import get_pairs, get_pairs_directed
 
 from alex_code.gnn.gnn_pair_dataset import GNNPairDatasetDisk
 from alex_code.gnn.model_loading import create_model
@@ -21,6 +21,8 @@ import torch.nn.functional as F
 
 import torch_geometric.transforms as T
 
+from tensorboardX import SummaryWriter
+
 parser = ArgumentParser()
 parser.add_argument("--graph-path", default="logistics/43/problogistics-6-1.p", type=str)
 parser.add_argument("--epochs", default=200, dest="epochs", type=int)
@@ -32,7 +34,7 @@ parser.add_argument("--model", default="gcn", dest="model", type=str, choices=["
 parser.add_argument("--directed", default="undirected", type=str, choices=["directed", "undirected"])
 
 
-def train(dataset, args):
+def train(dataset, writer, args):
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     model = create_model(args.model, dataset.data.num_features).to(device)
     dataset.data = dataset.data.to(device)
@@ -48,7 +50,10 @@ def train(dataset, args):
     best_weights = copy.deepcopy(model.state_dict())
 
     for epoch in range(args.epochs):
-        left, right, distance, edge_index = get_pairs(dataset, device, num_pairs=args.batch_size)
+        if args.directed == "directed":
+            left, right, distance, edge_index = get_pairs_directed(dataset, device, num_pairs=args.batch_size)
+        else:
+            left, right, distance, edge_index = get_pairs(dataset, device, num_pairs=args.batch_size)
         optimizer.zero_grad()
 
         out = model(dataset.data.x, edge_index)
@@ -62,14 +67,19 @@ def train(dataset, args):
 
         print("Loss: {}".format(loss))
 
+        writer.add_scalar("loss", epoch, loss.item())
+
         if loss.item() < best_loss:
             best_loss = loss.item()
             best_weights = copy.deepcopy(model.state_dict())
 
     model.load_state_dict(best_weights)
+    writer.add_scalar("best_loss", epoch, best_loss)
 
-    left, right, distance, edge_index = get_pairs(dataset, device)
-    optimizer.zero_grad()
+    if args.directed == "directed":
+        left, right, distance, edge_index = get_pairs_directed(dataset, device)
+    else:
+        left, right, distance, edge_index = get_pairs(dataset, device)
 
     out = model(dataset.data.x, edge_index)
     left_features = out[left]
@@ -78,7 +88,7 @@ def train(dataset, args):
     print("Pred: {}".format(euclidean))
     print("Actual: {}".format(distance))
 
-    return model
+    return model, best_loss
 
 
 def main(args):
@@ -117,7 +127,8 @@ def main(args):
 
     gnn_pair_dataset = GNNPairDatasetDisk(graph_path, node_mapping_path, goal_path)
 
-    model = train(gnn_pair_dataset, args)
+    writer = SummaryWriter(model_folder)
+    model, best_loss = train(gnn_pair_dataset, writer, args)
 
     if not os.path.exists(model_folder):
         os.makedirs(model_folder)
@@ -127,6 +138,7 @@ def main(args):
 
     d = vars(args)
     d["num_features"] = gnn_pair_dataset.data.num_features
+    d["best_loss"] = best_loss
 
     with open(stats_path, "w") as fp:
         json.dump(args.__dict__, fp, indent=4, sort_keys=True)

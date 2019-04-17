@@ -34,13 +34,14 @@ class GNNHeuristic(Heuristic):
     It returns 0 if the goal was reached and 1 otherwise.
     """
 
-    def __init__(self, problem, task, gnn, device="gpu"):
+    def __init__(self, problem, task, gnn, directed, device="gpu"):
         super(GNNHeuristic, self).__init__()
         self.goals = task.goals
         self.gnn = gnn
         self.task = task
         self.problem = problem
         self.device = device
+        self.directed = directed
 
         self.goal_embedding = self.generate_goal_embedding()
 
@@ -50,7 +51,11 @@ class GNNHeuristic(Heuristic):
         return torch.norm(self.goal_embedding - node_embedding, p=2)
 
     def generate_embedding(self, node):
-        G = nx.Graph()
+        if self.directed == "directed":
+            G = nx.DiGraph()
+        else:
+            G = nx.Graph()
+
         neighbours = get_neighbours_forward(self.task, node)
 
         counts = {}
@@ -60,6 +65,14 @@ class GNNHeuristic(Heuristic):
             G.add_edge(hash_state(node.state), hash_state(neighbour.state))
 
             counts[hash_state(neighbour.state)] = get_counts(self.problem, self.task, neighbour.state)
+
+        for neighbour in neighbours:
+            second_level = get_neighbours_forward(self.task, neighbour)
+
+            for sec in second_level:
+                G.add_edge(hash_state(neighbour.state), hash_state(sec.state))
+
+                counts[hash_state(sec.state)] = get_counts(self.problem, self.task, sec.state)
 
         nx.set_node_attributes(G, counts, "counts")
 
@@ -85,7 +98,11 @@ class GNNHeuristic(Heuristic):
         return embedding[node_mapping[hash_state(node.state)]]
 
     def generate_goal_embedding(self):
-        G = nx.Graph()
+        if self.directed == "directed":
+            G = nx.DiGraph()
+        else:
+            G = nx.Graph()
+
         root = searchspace.make_root_node(self.task.goals)
         neighbours = get_neighbours_regression(self.task, root)
 
@@ -93,7 +110,7 @@ class GNNHeuristic(Heuristic):
         counts[hash_state(root.state)] = get_counts(self.problem, self.task, root.state)
 
         for neighbour in neighbours:
-            G.add_edge(hash_state(root.state), hash_state(neighbour))
+            G.add_edge(hash_state(neighbour), hash_state(root.state))
 
             counts[hash_state(neighbour)] = get_counts(self.problem, self.task, neighbour)
 
@@ -103,7 +120,7 @@ class GNNHeuristic(Heuristic):
             second_level = get_neighbours_regression(self.task, temp)
 
             for sec in second_level:
-                G.add_edge(hash_state(neighbour), hash_state(sec))
+                G.add_edge(hash_state(sec), hash_state(neighbour))
 
                 counts[hash_state(sec)] = get_counts(self.problem, self.task, sec)
 

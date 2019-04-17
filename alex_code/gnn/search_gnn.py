@@ -26,7 +26,7 @@ parser.add_argument("--domain-file", default="logistics/43/domain.pddl", type=st
 parser.add_argument("--problem-file", default="logistics/43/problogistics-6-1.pddl", type=str)
 parser.add_argument("--graph-path", default="logistics/43/problogistics-6-1.p", type=str)
 
-parser.add_argument("--epochs", default=100, dest="epochs", type=int)
+parser.add_argument("--epochs", default=200, dest="epochs", type=int)
 parser.add_argument("--batch-size", default=1000, dest="batch_size", type=int)
 parser.add_argument("--normalization", default="none", dest="normalization", choices=["none", "normalize"])
 parser.add_argument("--seed", default=219, dest="seed")
@@ -79,7 +79,7 @@ def main(args):
 
     results = {"node2vec": {"time": None, "expansions": None}}
 
-    heuristic = GNNHeuristic(problem, task, model, device)
+    heuristic = GNNHeuristic(problem, task, model, args.directed, device)
 
     wrapped = wrapper(solve_problem, task, heuristic)
     results["node2vec"]["time"] = timeit.timeit(wrapped, number=1)
