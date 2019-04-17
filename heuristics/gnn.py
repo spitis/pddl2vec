@@ -25,6 +25,7 @@ from heuristics.heuristic_base import Heuristic
 from alex_code.utils.graph import hash_state, get_neighbours_forward, get_neighbours_regression, get_counts
 from alex_code.utils.similarity import cosine_similarity
 from alex_code.gnn.gnn_pair_dataset import GNNPairDatasetMemory
+from alex_code.gnn.normalization import apply_normalization
 
 from search import searchspace
 
@@ -34,7 +35,7 @@ class GNNHeuristic(Heuristic):
     It returns 0 if the goal was reached and 1 otherwise.
     """
 
-    def __init__(self, problem, task, gnn, directed, device="gpu"):
+    def __init__(self, problem, task, gnn, directed, normalization, device="gpu"):
         super(GNNHeuristic, self).__init__()
         self.goals = task.goals
         self.gnn = gnn
@@ -42,6 +43,7 @@ class GNNHeuristic(Heuristic):
         self.problem = problem
         self.device = device
         self.directed = directed
+        self.normalization = normalization
 
         self.goal_embedding = self.generate_goal_embedding()
 
@@ -93,6 +95,8 @@ class GNNHeuristic(Heuristic):
 
         pair_dataset = GNNPairDatasetMemory(G)
         pair_dataset.data = pair_dataset.data.to(self.device)
+        pair_dataset.data = apply_normalization(pair_dataset, self.normalization)
+
         embedding = self.gnn(pair_dataset.data.x, pair_dataset.data.edge_index)
 
         return embedding[node_mapping[hash_state(node.state)]]
@@ -143,6 +147,7 @@ class GNNHeuristic(Heuristic):
 
         pair_dataset = GNNPairDatasetMemory(G)
         pair_dataset.data = pair_dataset.data.to(self.device)
+        pair_dataset.data = apply_normalization(pair_dataset, self.normalization)
         goal_embedding = self.gnn(pair_dataset.data.x, pair_dataset.data.edge_index)
 
         return goal_embedding[node_mapping[hash_state(root.state)]]

@@ -11,6 +11,7 @@ from alex_code.gnn.gnn_pair_dataset import get_pairs, get_pairs_directed
 
 from alex_code.gnn.gnn_pair_dataset import GNNPairDatasetDisk
 from alex_code.gnn.model_loading import create_model
+from alex_code.gnn.normalization import apply_normalization
 from alex_code.gnn.regression import RegressionGCN
 from alex_code.utils.similarity import euclidean_distance
 from alex_code.utils.save import get_time
@@ -27,7 +28,7 @@ parser = ArgumentParser()
 parser.add_argument("--graph-path", default="logistics/43/problogistics-6-1.p", type=str)
 parser.add_argument("--epochs", default=200, dest="epochs", type=int)
 parser.add_argument("--batch-size", default=1000, dest="batch_size", type=int)
-parser.add_argument("--normalization", default="none", dest="normalization", choices=["none", "normalize"])
+parser.add_argument("--normalization", default="none", dest="normalization", choices=["none", "features", "samples"])
 parser.add_argument("--seed", default=219, dest="seed")
 parser.add_argument("--lr", default=0.01, dest="lr", type=float)
 parser.add_argument("--model", default="gcn", dest="model", type=str, choices=["arma", "gcn"])
@@ -38,9 +39,7 @@ def train(dataset, writer, args):
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     model = create_model(args.model, dataset.data.num_features).to(device)
     dataset.data = dataset.data.to(device)
-
-    if args.normalization != "none":
-        dataset.data = T.NormalizeFeatures()(dataset.data)
+    dataset.data = apply_normalization(dataset, args.normalization)
 
     optimizer = torch.optim.Adam(model.parameters(), lr=args.lr, weight_decay=5e-5)
 
@@ -67,14 +66,13 @@ def train(dataset, writer, args):
 
         print("Loss: {}".format(loss))
 
-        writer.add_scalar("loss", epoch, loss.item())
+        writer.add_scalar("loss", loss.item(), epoch)
 
         if loss.item() < best_loss:
             best_loss = loss.item()
             best_weights = copy.deepcopy(model.state_dict())
 
     model.load_state_dict(best_weights)
-    writer.add_scalar("best_loss", epoch, best_loss)
 
     if args.directed == "directed":
         left, right, distance, edge_index = get_pairs_directed(dataset, device)
@@ -85,6 +83,10 @@ def train(dataset, writer, args):
     left_features = out[left]
     right_features = out[right]
     euclidean = euclidean_distance(left_features, right_features)
+    best_loss = F.mse_loss(euclidean, distance).item()
+
+    writer.add_scalar("best_loss", best_loss)
+
     print("Pred: {}".format(euclidean))
     print("Actual: {}".format(distance))
 

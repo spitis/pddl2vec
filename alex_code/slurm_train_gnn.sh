@@ -15,7 +15,7 @@ problem_path="logistics/43/problogistics-6-1.pddl"
 epochs=(100 200 500)
 batch_sizes=(100 1000 10000)
 lrs=(1.0 0.1 0.01 0.001)
-normalizations=(none normalize)
+normalizations=(none samples features)
 directions=(undirected directed)
 
 count=0
