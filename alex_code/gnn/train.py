@@ -28,16 +28,18 @@ parser = ArgumentParser()
 parser.add_argument("--graph-path", default="logistics/43/problogistics-6-1.p", type=str)
 parser.add_argument("--epochs", default=200, dest="epochs", type=int)
 parser.add_argument("--batch-size", default=1000, dest="batch_size", type=int)
-parser.add_argument("--normalization", default="none", dest="normalization", choices=["none", "features", "samples"])
+parser.add_argument("--normalization", default="none", dest="normalization", choices=["none", "features",
+                                                                                          "samples"])
 parser.add_argument("--seed", default=219, dest="seed")
-parser.add_argument("--lr", default=0.01, dest="lr", type=float)
+parser.add_argument("--lr", default=0.1, dest="lr", type=float)
 parser.add_argument("--model", default="gcn", dest="model", type=str, choices=["arma", "gcn"])
 parser.add_argument("--directed", default="undirected", type=str, choices=["directed", "undirected"])
+parser.add_argument("--activation", default="selu", type=str, choices=["sigmoid", "tanh", "relu", "elu", "selu"])
 
 
 def train(dataset, writer, args):
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-    model = create_model(args.model, dataset.data.num_features).to(device)
+    model = create_model(args.model, args.activation, dataset.data.num_features).to(device)
     dataset.data = dataset.data.to(device)
     dataset.data = apply_normalization(dataset, args.normalization)
 

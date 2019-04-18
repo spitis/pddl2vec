@@ -50,7 +50,7 @@ class GNNHeuristic(Heuristic):
     def __call__(self, node, goal=None):
         node_embedding = self.generate_embedding(node)
 
-        return torch.norm(self.goal_embedding - node_embedding, p=2)
+        return torch.norm(self.goal_embedding - node_embedding, p=2).item()
 
     def generate_embedding(self, node):
         if self.directed == "directed":

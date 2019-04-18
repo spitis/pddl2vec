@@ -3,6 +3,7 @@ import torch.nn.functional as F
 from torch_geometric.nn import GCNConv
 
 from alex_code.gnn.gnn_pair_dataset import get_pairs
+from alex_code.gnn.activations import get_activation
 from alex_code.utils.similarity import euclidean_distance
 
 from torch_geometric.nn import ARMAConv
@@ -10,10 +11,12 @@ from torch_geometric.nn import ARMAConv
 
 
 class RegressionGCN(torch.nn.Module):
-    def __init__(self, num_features):
+    def __init__(self, activation, num_features):
         super(RegressionGCN, self).__init__()
-        self.conv1 = GCNConv(num_features, 25)
-        self.conv2 = GCNConv(25, 10)
+        self.conv1 = GCNConv(num_features, 30)
+        self.conv2 = GCNConv(30, 25)
+
+        self.activation = get_activation(activation)
 
     def forward(self, x, edge_index):
         features = self.extract_features(x, edge_index)
@@ -22,7 +25,7 @@ class RegressionGCN(torch.nn.Module):
 
     def extract_features(self, x, edge_index):
         x = self.conv1(x, edge_index)
-        x = F.relu(x)
+        x = self.activation(x)
         x = F.dropout(x, training=self.training)
         x = self.conv2(x, edge_index)
 
@@ -30,7 +33,7 @@ class RegressionGCN(torch.nn.Module):
 
 
 class RegressionARMA(torch.nn.Module):
-    def __init__(self, num_features):
+    def __init__(self, activation, num_features):
         super(RegressionARMA, self).__init__()
 
         self.conv1 = ARMAConv(
@@ -50,9 +53,11 @@ class RegressionARMA(torch.nn.Module):
             dropout=0.25,
             act=None)
 
+        self.activation = get_activation(activation)
+
     def forward(self, x, edge_index):
         x = F.dropout(x, training=self.training)
-        x = F.relu(self.conv1(x, edge_index))
+        x = self.activation(self.conv1(x, edge_index))
         x = F.dropout(x, training=self.training)
         x = self.conv2(x, edge_index)
 
