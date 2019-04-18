@@ -1,6 +1,7 @@
 import torch
 import torch.nn.functional as F
 from torch_geometric.nn import GCNConv
+from torch.nn import Linear
 
 from alex_code.gnn.gnn_pair_dataset import get_pairs
 from alex_code.gnn.activations import get_activation
@@ -32,6 +33,9 @@ class RegressionGCN(torch.nn.Module):
         return x
 
 
+
+
+
 class RegressionARMA(torch.nn.Module):
     def __init__(self, activation, num_features):
         super(RegressionARMA, self).__init__()
@@ -60,5 +64,25 @@ class RegressionARMA(torch.nn.Module):
         x = self.activation(self.conv1(x, edge_index))
         x = F.dropout(x, training=self.training)
         x = self.conv2(x, edge_index)
+
+        return x
+
+
+class RegressionNN(torch.nn.Module):
+    def __init__(self, activation, num_features):
+        super(RegressionNN, self).__init__()
+
+        self.fc1 = Linear(num_features, 75)
+        self.fc2 = Linear(75, 50)
+        self.fc3 = Linear(50, 25)
+
+        self.activation = get_activation(activation)
+
+    def forward(self, x, edge_index):
+        x = self.fc1(x)
+        x = self.activation(x)
+        x = self.fc2(x)
+        x = self.activation(x)
+        x = self.fc3(x)
 
         return x

@@ -32,7 +32,7 @@ parser.add_argument("--normalization", default="none", dest="normalization", cho
                                                                                           "samples"])
 parser.add_argument("--seed", default=219, dest="seed")
 parser.add_argument("--lr", default=0.1, dest="lr", type=float)
-parser.add_argument("--model", default="gcn", dest="model", type=str, choices=["arma", "gcn"])
+parser.add_argument("--model", default="gcn", dest="model", type=str, choices=["arma", "gcn", "nn"])
 parser.add_argument("--directed", default="undirected", type=str, choices=["directed", "undirected"])
 parser.add_argument("--activation", default="selu", type=str, choices=["sigmoid", "tanh", "relu", "elu", "selu"])
 
