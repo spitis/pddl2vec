@@ -140,7 +140,7 @@ def astar_search(task, heuristic, make_open_entry=ordered_node_astar,
             logging.debug("Found new best h: %d after %d expansions" %
                           (besth, counter))
 
-        if expansions % 10000 == 0:
+        if expansions % 100 == 0:
             print("Num expansions: {}".format(expansions))
 
         pop_state = pop_node.state
@@ -190,3 +190,101 @@ def astar_search(task, heuristic, make_open_entry=ordered_node_astar,
     logging.info("No operators left. Task unsolvable.")
     logging.info("%d Nodes expanded" % expansions)
     return None, expansions
+
+
+def astar_search_comparison(task, heuristics, make_open_entry=ordered_node_astar,
+                 use_relaxed_plan=False, limit=1000):
+    """
+    Searches for a plan in the given task using A* search.
+
+    @param task The task to be solved
+    @param heuristics  A dictionary of heuristic callables which computes the estimated steps
+                      from a search node to reach the goal.
+    @param make_open_entry An optional parameter to change the bahavior of the
+                           astar search. The callable should return a search
+                           node, possible values are ordered_node_astar,
+                           ordered_node_weighted_astar and
+                           ordered_node_greedy_best_first with obvious
+                           meanings.
+    """
+    open = []
+    state_cost = {task.initial_state: 0}
+    node_tiebreaker = 0
+
+    root = searchspace.make_root_node(task.initial_state)
+    init_h = heuristics["main"](root)
+    heapq.heappush(open, make_open_entry(root, init_h, node_tiebreaker))
+    logging.info("Initial h value: %f" % init_h)
+
+    besth = float('inf')
+    counter = 0
+    expansions = 0
+
+    heuristic_values = {key: [] for key in heuristics.keys()}
+
+    while open:
+        (f, h, _tie, pop_node) = heapq.heappop(open)
+        if h < besth:
+            besth = h
+            logging.debug("Found new best h: %d after %d expansions" %
+                          (besth, counter))
+
+        if expansions % 100 == 0:
+            print("Num expansions: {}".format(expansions))
+
+        if expansions > limit:
+            break
+
+        pop_state = pop_node.state
+        # Only expand the node if its associated cost (g value) is the lowest
+        # cost known for this state. Otherwise we already found a cheaper
+        # path after creating this node and hence can disregard it.
+        if state_cost[pop_state] == pop_node.g:
+            expansions += 1
+
+            if task.goal_reached(pop_state):
+                logging.info("Goal reached. Start extraction of solution.")
+                logging.info("%d Nodes expanded" % expansions)
+                return pop_node.extract_solution(), expansions, heuristic_values
+            rplan = None
+            if use_relaxed_plan:
+                (rh, rplan) = heuristics["main"].calc_h_with_plan(
+                                        searchspace.make_root_node(pop_state))
+                logging.debug("relaxed plan %s " % rplan)
+
+            for op, succ_state in task.get_successor_states(pop_state):
+                if use_relaxed_plan:
+                    if rplan and not op.name in rplan:
+                        # ignore this operator if we use the relaxed plan
+                        # criterion
+                        logging.debug('removing operator %s << not a '
+                                      'preferred operator' % op.name)
+                        continue
+                    else:
+                        logging.debug('keeping operator %s' % op.name)
+
+                succ_node = searchspace.make_child_node(pop_node, op,
+                                                        succ_state)
+                h_main = heuristics["main"](succ_node)
+                h_comp = heuristics["comp"](succ_node)
+
+                heuristic_values["main"].append(h_main)
+                heuristic_values["comp"].append(h_comp)
+
+                if h_main == float('inf'):
+                    # don't bother with states that can't reach the goal anyway
+                    continue
+                old_succ_g = state_cost.get(succ_state, float("inf"))
+                if succ_node.g < old_succ_g:
+                    # We either never saw succ_state before, or we found a
+                    # cheaper path to succ_state than previously.
+                    node_tiebreaker += 1
+                    heapq.heappush(open, make_open_entry(succ_node, h_main,
+                                                         node_tiebreaker))
+                    state_cost[succ_state] = succ_node.g
+
+        counter += 1
+
+    logging.info("No operators left. Task unsolvable.")
+    logging.info("%d Nodes expanded" % expansions)
+    return None, expansions, heuristic_values

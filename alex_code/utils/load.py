@@ -56,7 +56,7 @@ def find_best_model(models_dir, restrictions={}):
 
 def dictionary_subset(d1, d2):
     for k1, v1 in d1.items():
-        if "file" in k1 or "path" in k1:
+        if "file" in k1 or "path" in k1 or "comparison" in k1:
             continue
 
         if k1 not in d2.keys():
