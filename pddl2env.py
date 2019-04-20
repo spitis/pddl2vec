@@ -3,7 +3,7 @@ from gym.utils import seeding
 from pyperplan import _parse, _ground
 from embedding import NaiveEmb, IntegerEmb
 from collections import defaultdict
-
+import numpy as np
 
 class PddlBasicEnv(gym.Env):
   """
@@ -90,14 +90,23 @@ class PddlSimpleMultiGoalEnv(gym.GoalEnv):
     
     self.goal_len = sum([len(v) for v in self.mutexes.values()])
     
-    self.basic_init = frozenset([f for f in env.task.initial_state if not special_obj in f])
+    self.basic_init = frozenset([f for f in self.task.initial_state if not special_obj in f])
     
     self.action_space = spaces.Discrete(1000)
-    self.observation_space = spaces.Dict(dict(
-            desired_goal=spaces.MultiBinary(self.goal_len),
-            achieved_goal=spaces.MultiBinary(self.goal_len),
-            observation=spaces.MultiBinary(len(self.task.facts)),
-        ))
+    if embedding_fn is IntegerEmb:
+      self.observation_space = spaces.Dict(dict(
+        desired_goal=spaces.MultiDiscrete([len(self.task.facts)] * self.goal_len),
+        achieved_goal=spaces.MultiDiscrete([len(self.task.facts)] * self.goal_len),
+        observation=spaces.MultiDiscrete([len(self.task.facts)] * len(self.task.initial_state)),
+      ))
+    elif embedding_fn is NaiveEmb:
+      self.observation_space = spaces.Dict(dict(
+        desired_goal=spaces.MultiBinary(self.goal_len),
+        achieved_goal=spaces.MultiBinary(self.goal_len),
+        observation=spaces.MultiBinary(len(self.task.facts)),
+      ))
+    else:
+      raise
     
     self.reward_range = (-1., 0.)
 

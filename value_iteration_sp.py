@@ -310,10 +310,16 @@ class SimpleValueIteration(BaseRLModel):
         """
     self.task_step = 0
 
-    items = [("observations0", (self.observation_space.shape[0],)),
-              ("rewards", (1,)),
-              ("observations1", (self.observation_space.shape[0],)),
-              ("terminals1", (1,))]
+    if isinstance(self.observation_space.shape[0], tuple):
+      items = [("observations0", (self.observation_space.shape[0])),
+                ("rewards", (1,)),
+                ("observations1", (self.observation_space.shape[0])),
+                ("terminals1", (1,))]
+    else:
+      items = [("observations0", (self.observation_space.shape[0],)),
+                ("rewards", (1,)),
+                ("observations1", (self.observation_space.shape[0],)),
+                ("terminals1", (1,))]
 
     if self.goal_space is not None:
       if not isinstance(self.goal_space, gym.spaces.tuple_space.Tuple):
