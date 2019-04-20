@@ -13,8 +13,6 @@
   package-1 - package
   package-2 - package
   package-3 - package
-  package-4 - package
-  package-5 - package
   capacity-0 - capacity-number
   capacity-1 - capacity-number
   capacity-2 - capacity-number
