@@ -173,6 +173,7 @@ def get_predicate_counts(problem, task, state):
 def get_action_counts(problem, task, state):
     binary_counts = {action: 0 for action in sorted(problem.domain.actions.keys())}
     relevant_counts = {action: 0 for action in sorted(problem.domain.actions.keys())}
+    all_counts = {action: 0 for action in sorted(problem.domain.actions.keys())}
 
     for op in task.operators:
         if not op.applicable(state):
@@ -180,6 +181,8 @@ def get_action_counts(problem, task, state):
 
         parsed = op.name[1: -1]
         parsed = parsed.split(" ")[0]
+
+        all_counts[parsed] += 1
 
         intersection = len(op.add_effects.intersection(task.goals))
 
@@ -190,12 +193,14 @@ def get_action_counts(problem, task, state):
 
     binary_list = []
     relevant_list = []
+    all_list = []
 
     for key in binary_counts.keys():
         binary_list.append(binary_counts[key])
         relevant_list.append(relevant_counts[key])
+        all_list.append(all_counts[key])
 
-    return binary_list + relevant_list
+    return binary_list + relevant_list + all_list
 
 
 def get_counts(problem, task, state):
