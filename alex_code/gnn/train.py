@@ -3,8 +3,6 @@ from dotenv import load_dotenv, find_dotenv
 import copy
 import json
 import os
-import subprocess
-import logging
 
 from settings import ROOT_DIR
 from alex_code.gnn.gnn_pair_dataset import get_pairs, get_pairs_directed
@@ -12,7 +10,6 @@ from alex_code.gnn.gnn_pair_dataset import get_pairs, get_pairs_directed
 from alex_code.gnn.gnn_pair_dataset import GNNPairDatasetDisk
 from alex_code.gnn.model_loading import create_model
 from alex_code.gnn.normalization import apply_normalization
-from alex_code.gnn.regression import RegressionGCN
 from alex_code.utils.similarity import euclidean_distance
 from alex_code.utils.save import get_time
 
@@ -31,8 +28,8 @@ parser.add_argument("--batch-size", default=1000, dest="batch_size", type=int)
 parser.add_argument("--normalization", default="none", dest="normalization", choices=["none", "features",
                                                                                           "samples"])
 parser.add_argument("--seed", default=219, dest="seed")
-parser.add_argument("--lr", default=0.1, dest="lr", type=float)
-parser.add_argument("--model", default="gcn", dest="model", type=str, choices=["arma", "gcn", "nn"])
+parser.add_argument("--lr", default=0.01, dest="lr", type=float)
+parser.add_argument("--model", default="deepgcn", dest="model", type=str, choices=["arma", "gcn", "nn", "deepgcn"])
 parser.add_argument("--directed", default="undirected", type=str, choices=["directed", "undirected"])
 parser.add_argument("--activation", default="selu", type=str, choices=["sigmoid", "tanh", "relu", "elu", "selu"])
 
@@ -97,6 +94,8 @@ def train(dataset, writer, args):
 
 def main(args):
     load_dotenv(find_dotenv(), override=True)
+
+    print(args)
 
     torch.cuda.manual_seed(args.seed)
     torch.manual_seed(args.seed)

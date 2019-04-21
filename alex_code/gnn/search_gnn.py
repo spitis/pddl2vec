@@ -14,6 +14,8 @@ import timeit
 
 from heuristics.gnn import GNNHeuristic
 
+from alex_code.compute_baselines import time_limit, TimeoutException
+
 from alex_code.utils.save import read_pickle, read_json
 from alex_code.gnn.model_loading import create_model
 from alex_code.gnn.regression import RegressionGCN
@@ -26,15 +28,23 @@ parser.add_argument("--domain-file", default="logistics/43/domain.pddl", type=st
 parser.add_argument("--problem-file", default="logistics/43/problogistics-6-1.pddl", type=str)
 parser.add_argument("--graph-path", default="logistics/43/problogistics-6-1.p", type=str)
 
-parser.add_argument("--epochs", default=100, dest="epochs", type=int)
-parser.add_argument("--batch-size", default=10000, dest="batch_size", type=int)
+parser.add_argument("--epochs", default=200, dest="epochs", type=int)
+parser.add_argument("--batch-size", default=1000, dest="batch_size", type=int)
 parser.add_argument("--normalization", default="none", dest="normalization", choices=["none", "normalize",
                                                                                            "features", "samples"])
 parser.add_argument("--seed", default=219, dest="seed")
 parser.add_argument("--lr", default=0.01, dest="lr", type=float)
-parser.add_argument("--model", default="gcn", dest="model", type=str, choices=["arma", "gcn"])
+parser.add_argument("--model", default="deepgcn", dest="model", type=str, choices=["arma", "gcn", "deepgcn"])
 parser.add_argument("--directed", default="undirected", type=str, choices=["directed", "undirected"])
 parser.add_argument("--activation", default="selu", type=str, choices=["sigmoid", "tanh", "relu", "elu", "selu"])
+
+parser.add_argument("--comparison-time-limit", default=100, type=int)
+
+
+def run_search(task, heuristic):
+    solution, expansions = solve_problem(task, heuristic)
+
+    return expansions
 
 
 def main(args):
@@ -79,18 +89,21 @@ def main(args):
     result_stats_file = os.environ.get("GNN_STATS_FILE")
     result_stats_path = os.path.join(result_dir, result_stats_file)
 
-    results = {"node2vec": {"time": None, "expansions": None}}
+    results = {"gnn": {"time": None, "expansions": None}}
 
     heuristic = GNNHeuristic(problem, task, model, args.directed, args.normalization, device)
 
-    wrapped = wrapper(solve_problem, task, heuristic)
-    results["node2vec"]["time"] = timeit.timeit(wrapped, number=1)
-    solution, expansions = solve_problem(task, heuristic)
-
-    if solution is None:
-        raise Exception("Solution does not exist for this problem")
-
-    results["node2vec"]["expansions"] = expansions
+    try:
+        with time_limit(args.comparison_time_limit):
+            expansions = run_search(task, heuristic)
+            results["gnn"]["expansions"] = expansions
+            results["gnn"]["timed_out"] = False
+        with time_limit(args.comparison_time_limit):
+            wrapped = wrapper(solve_problem, task, heuristic)
+            results["gnn"]["time"] = timeit.timeit(wrapped, number=1)
+    except TimeoutException as e:
+        print("Timed out")
+        results["gnn"]["timed_out"] = True
 
     print(results)
 
