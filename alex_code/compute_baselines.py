@@ -38,15 +38,20 @@ def solve_problem(task, h):
     return solution, expansions
 
 
-def run_baseline(results, task, h, identifier):
-    wrapped = wrapper(solve_problem, task, h)
-    results[identifier]["time"] = timeit.timeit(wrapped, number=1)
+def run_baseline(task, h):
     solution, expansions = solve_problem(task, h)
 
     if solution is None:
         raise Exception("Solution does not exist for this problem")
 
-    results[identifier]["expansions"] = expansions
+    return expansions
+
+
+def time_baseline(task, h):
+    wrapped = wrapper(solve_problem, task, h)
+    time = timeit.timeit(wrapped, number=1)
+
+    return time
 
 
 @contextmanager
@@ -90,8 +95,10 @@ def main(args):
 
     try:
         with time_limit(args.time_limit):
-            run_baseline(results, task, heuristics[args.heuristic](task), identifier)
+            results[identifier]["expansions"] = run_baseline(task, heuristics[args.heuristic](task))
             results[identifier]["timed_out"] = False
+        with time_limit(args.time_limit):
+            results[identifier]["time"] = time_baseline(task, heuristics[args.heuristic](task))
     except TimeoutException as e:
         print("Timed out")
         results[identifier]["timed_out"] = True

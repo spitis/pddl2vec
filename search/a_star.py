@@ -140,7 +140,7 @@ def astar_search(task, heuristic, make_open_entry=ordered_node_astar,
             logging.debug("Found new best h: %d after %d expansions" %
                           (besth, counter))
 
-        if expansions % 100 == 0:
+        if expansions % 10000 == 0:
             print("Num expansions: {}".format(expansions))
 
         pop_state = pop_node.state
