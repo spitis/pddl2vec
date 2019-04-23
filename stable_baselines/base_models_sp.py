@@ -56,8 +56,6 @@ class BaseRLModel(ABC):
       else:
         self.observation_space = env.observation_space
 
-      self.observation_space = env.observation_space
-
       self.action_space = env.action_space
       self.n_envs = 1
 
@@ -80,7 +78,7 @@ class BaseRLModel(ABC):
   def _process_experience(self, obs, action, rew, new_obs, done):
     pass
 
-  def evaluate(self, n_episodes, max_steps=500):
+  def evaluate(self, n_episodes, max_steps=50):
     """evaluates model for n_episodes"""
     env = self.eval_env
     assert env is not None, "Must set an eval_env in order to evaluate!"
@@ -103,7 +101,7 @@ class BaseRLModel(ABC):
 
   def learn(self,
             total_timesteps,
-            max_steps=500,
+            max_steps=50,
             log_interval=100,
             tb_log_name=""):
     """Assumes VecEnv"""
@@ -149,7 +147,11 @@ class BaseRLModel(ABC):
           global_step += 1
 
           # A list of state representations of all valid successors.
-          tuple_obs = tuple(obs)
+          if self.goal_space is not None:
+            tuple_obs = tuple(obs['observation'])
+          else:
+            tuple_obs = tuple(obs)
+
           if not tuple_obs in self.successor_dict:
             successors, rewards = self.env.get_actions_and_rewards()
             successors = np.array(successors)
@@ -158,15 +160,28 @@ class BaseRLModel(ABC):
           else:
             successors, _ = self.successor_dict[tuple_obs]
 
+          #print(successors)
           action, _ = self._get_action_for_single_obs(obs, successors)
+          #print(action)
           new_obs, rewards, done, _ = self.env.step(action)
           done = (steps % max_steps == 0)
 
-          obses = np.expand_dims(obs, 0)
+          if self.goal_space is not None:
+            obses = {}
+            obses['observation'] = np.expand_dims(obs['observation'], 0)
+            obses['achieved_goal'] = np.expand_dims(obs['achieved_goal'], 0)
+            obses['desired_goal'] = np.expand_dims(obs['desired_goal'], 0)
+            new_obses = {}
+            new_obses['observation'] = np.expand_dims(new_obs['observation'], 0)
+            new_obses['achieved_goal'] = np.expand_dims(new_obs['achieved_goal'], 0)
+            new_obses['desired_goal'] = np.expand_dims(new_obs['desired_goal'], 0)
+          else:
+            obses = np.expand_dims(obs, 0)
+            new_obses = np.expand_dims(new_obs, 0)
+
           actions = np.expand_dims(action, 0)
           rewards = np.expand_dims(rewards, 0)  # [1, ]
           dones = np.expand_dims(done, 0)  # [1,]
-          new_obses = np.expand_dims(new_obs, 0)
 
           # Do the learning and fetch tensorboard summaries
           summaries = self._process_experience(obses, actions, rewards, new_obses, dones)
@@ -282,8 +297,11 @@ class BaseRLModel(ABC):
     if mask is None:
       mask = [False for _ in range(self.n_envs)]
 
-    
-    tuple_obs = tuple(observation)
+    if self.goal_space is not None:
+      tuple_obs = tuple(observation['observation'])
+    else:
+      tuple_obs = tuple(observation)
+
     if not tuple_obs in self.successor_dict:
       successors, rewards = self.eval_env.get_actions_and_rewards()
       successors = np.array(successors)

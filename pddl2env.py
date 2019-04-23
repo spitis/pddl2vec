@@ -95,8 +95,8 @@ class PddlSimpleMultiGoalEnv(gym.GoalEnv):
     self.action_space = spaces.Discrete(1000)
     if embedding_fn is IntegerEmb:
       self.observation_space = spaces.Dict(dict(
-        desired_goal=spaces.MultiDiscrete([len(self.task.facts)] * self.goal_len),
-        achieved_goal=spaces.MultiDiscrete([len(self.task.facts)] * self.goal_len),
+        desired_goal=spaces.MultiDiscrete([len(self.task.facts)] * len(self.mutexes)),
+        achieved_goal=spaces.MultiDiscrete([len(self.task.facts)] * len(self.mutexes)),
         observation=spaces.MultiDiscrete([len(self.task.facts)] * len(self.task.initial_state)),
       ))
     elif embedding_fn is NaiveEmb:
@@ -106,7 +106,7 @@ class PddlSimpleMultiGoalEnv(gym.GoalEnv):
         observation=spaces.MultiBinary(len(self.task.facts)),
       ))
     else:
-      raise
+      raise ValueError
     
     self.reward_range = (-1., 0.)
 
@@ -122,6 +122,14 @@ class PddlSimpleMultiGoalEnv(gym.GoalEnv):
   
   def get_actions(self):
     return [self.E.state_to_emb(a) for a in self._actions]
+
+  def get_actions_and_rewards(self):
+    return zip(*[(self.E.state_to_emb(a), float(self._goal <= a) - 1.) for a in self._actions])
+
+  def compute_reward(self, achieved_goal_or_state, desired_goal, info=None):
+    """Computes reward with embeddings"""
+    success = frozenset(desired_goal) <= frozenset(achieved_goal_or_state)
+    return float(success) - 1.
 
   def get_actions_for_emb(self, state_emb):
     actions = [
