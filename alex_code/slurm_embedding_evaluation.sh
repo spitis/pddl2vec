@@ -10,11 +10,15 @@ cd alex_code
 
 source /h/alexadam/anaconda3/bin/activate gnn
 
+PYTHONHASHSEED=0
+export PYTHONHASHSEED=0
+
 problem_path="logistics/43/problogistics-6-1.pddl"
 dimensions=(20 35 50 65 80 95 110 128)
 lengths=(20 40 60 80)
 num_walks=(2 5 8 10)
 context_sizes=(3 5 7 10)
+directions=(dr u)
 
 count=0
 
@@ -26,14 +30,17 @@ do
         do
             for k in ${context_sizes[@]}
             do
-                python -u evaluate_embeddings.py --problem-path=$problem_path --d=$d --l=$l --r=$r --k=$k &
-                count=$(( count + 1 ))
+                for directed in ${directions[@]}
+                do
+                    python -u search_node2vec.py --d=$d --l=$l --r=$r --k=$k --directed=$directed &
+                    count=$(( count + 1 ))
 
-                if [ ${count} -gt 14 ]
-                then
-                    count=0
-                    wait
-                fi
+                    if [ ${count} -gt 14 ]
+                    then
+                        count=0
+                        wait
+                    fi
+                done
             done
         done
     done

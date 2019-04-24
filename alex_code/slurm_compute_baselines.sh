@@ -2,8 +2,8 @@
 
 #SBATCH --partition=cpu
 #SBATCH --cpus-per-task=4
-#SBATCH --ntasks=4
-#SBATCH --mem-per-cpu=2000
+#SBATCH --ntasks=8
+#SBATCH --mem-per-cpu=1500
 
 
 
@@ -20,7 +20,7 @@ problems=$(ls ../pddl_files/${domain}/${competition})
 
 count=0
 heuristics=(hadd lmcut blind)
-time_limits=(30  60 90)
+time_limits=(1800)
 
 for time_limit in ${time_limits[@]}
 do
@@ -41,7 +41,7 @@ do
             python -u compute_baselines.py --domain-file=$domain_file --problem-file=$problem_file --heuristic=$heuristic --time-limit=$time_limit &
             count=$(( count + 1 ))
 
-            if [ ${count} -gt 3 ]
+            if [ ${count} -gt 7 ]
             then
                 count=0
                 wait

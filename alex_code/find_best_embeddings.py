@@ -15,20 +15,24 @@ parser.add_argument("--problem-path", default="logistics/43/problogistics-6-1.pd
 
 
 
-def get_best_results(result_dir):
+def get_best_results(result_dir, problem_name):
     # Create graph from edges
-    keys = ["pearson_cor", "pearson_cor_inv_dist", "pearson_cor_inv_dot", "spearman_cor", "spearman_cor_inv_dist", "spearman_cor_inv_dot"]
-    best = {key: {"val": 0.0, "path": None} for key in keys}
+    keys = ["expansions", "time"]
+    best = {key: {"val": float("inf"), "path": None} for key in keys}
     
     files = os.listdir(result_dir)
     
     for f in files:
+        if not "{}~".format(problem_name) in f:
+            continue
+
         with open(os.path.join(result_dir, f), "r") as read_file:
             res = json.load(read_file)
+            res = res["node2vec"]
         
         for key in keys:
-            if np.abs(res[key][0]) > best[key]["val"]:
-                best[key]["val"] = np.abs(res[key][0])
+            if np.abs(res[key]) < best[key]["val"]:
+                best[key]["val"] = np.abs(res[key])
                 best[key]["path"] = os.path.join(result_dir, f)
                 
     return best
@@ -39,10 +43,10 @@ def main(args):
     
     problem_name = os.path.basename(args.problem_path).split(".")[0]
     
-    result_dir = os.environ.get("EMBEDDING_EVALUATION_DIR")
+    result_dir = os.environ.get("NODE2VEC_HEURISTIC_RESULT_DIR")
     result_dir = os.path.join(ROOT_DIR, result_dir, os.path.dirname(args.problem_path))
     
-    best = get_best_results(result_dir)
+    best = get_best_results(result_dir, problem_name)
     pprint.pprint(best)
 
     

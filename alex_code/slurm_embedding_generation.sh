@@ -1,7 +1,7 @@
 #!/bin/bash
 #SBATCH --partition=cpu
 #SBATCH --cpus-per-task=2
-#SBATCH --ntasks=15
+#SBATCH --ntasks=10
 #SBATCH --mem-per-cpu=1000
 
 cd ..
@@ -37,7 +37,7 @@ do
                     python -u run_node2vec.py --graph-file=$graph_file --d=$d --l=$l --r=$r --k=$k --directed=$directed &
                     count=$(( count + 1 ))
 
-                    if [ ${count} -gt 14 ]
+                    if [ ${count} -gt 9 ]
                     then
                         count=0
                         wait
