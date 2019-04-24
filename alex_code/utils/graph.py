@@ -224,10 +224,10 @@ def get_neighbours_regression(task, node):
     for op in task.operators:
         effect_consistent = True
 
-        for add in op.add_effects:
-            if add not in node.state:
-                effect_consistent = False
-                break
+        # for add in op.add_effects:
+        #     if add not in node.state:
+        #         effect_consistent = False
+        #         break
 
         for delete in op.del_effects:
             if delete in node.state:
