@@ -13,7 +13,8 @@ import timeit
 
 from evaluate_embeddings import load_embeddings
 from heuristics.node2vec import Node2VecHeuristic
-from compute_baselines import wrapper, solve_problem
+from compute_baselines import wrapper, time_limit, run_baseline_astar, search_astar, run_baseline_gbfs, search_gbfs, \
+    TimeoutException
 
 from alex_code.utils.save import read_pickle
 
@@ -29,10 +30,13 @@ parser.add_argument("--p", default=1, type=float)
 parser.add_argument("--q", default=1, type=float)
 parser.add_argument("--directed", default="dr", type=str,
                    choices=["dr", "u"])
+parser.add_argument("--time-limit", default=30, type=int)
 
 
 def main(args):
     load_dotenv(find_dotenv(), override=True)
+
+    print(os.environ.get("PYTHONHASHSEED"))
     
     problem_name = os.path.basename(args.problem_file).split(".")[0]
     
@@ -73,7 +77,8 @@ def main(args):
     result_path = os.path.join(result_dir, result_file.format(problem_name=problem_name, d=args.d, l=args.l, r=args.r, k=args.k,
                                                              e=args.e, p=args.p, q=args.q, directed=args.directed))
     
-    results = {"node2vec": {"time": None, "expansions": None}}
+    results = {"astar": {"time": None, "expansions": None},
+               "gbfs": {"time": None, "expansions": None}}
     
     embeddings = load_embeddings(embedding_path)
     node_mapping = read_pickle(node_mapping_file)
@@ -81,14 +86,30 @@ def main(args):
     
     heuristic = Node2VecHeuristic(task, embeddings, node_mapping, goal)
     
-    wrapped = wrapper(solve_problem, task, heuristic)
-    results["node2vec"]["time"] = timeit.timeit(wrapped, number=1)
-    solution, expansions = solve_problem(task, heuristic)
-        
-    if solution is None:
-        raise Exception("Solution does not exist for this problem")
-        
-    results["node2vec"]["expansions"] = expansions
+    try:
+        with time_limit(args.time_limit):
+            expansions = run_baseline_astar(task, heuristic)
+            results["astar"]["expansions"] = expansions
+            results["astar"]["timed_out"] = False
+        with time_limit(args.time_limit):
+            wrapped = wrapper(search_astar, task, heuristic)
+            results["astar"]["time"] = timeit.timeit(wrapped, number=1)
+    except TimeoutException as e:
+        print("Timed out")
+        results["astar"]["timed_out"] = True
+
+    try:
+        with time_limit(args.time_limit):
+            expansions = run_baseline_gbfs(task, heuristic)
+            results["gbfs"]["expansions"] = expansions
+            results["gbfs"]["timed_out"] = False
+
+        with time_limit(args.time_limit):
+            wrapped = wrapper(search_gbfs, task, heuristic)
+            results["gbfs"]["time"] = timeit.timeit(wrapped, number=1)
+    except TimeoutException as e:
+        print("Timed out")
+        results["gbfs"]["timed_out"] = True
 
     print(results)
     

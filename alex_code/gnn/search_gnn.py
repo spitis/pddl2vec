@@ -19,32 +19,29 @@ from alex_code.compute_baselines import time_limit, TimeoutException
 from alex_code.utils.save import read_pickle, read_json
 from alex_code.gnn.model_loading import create_model
 from alex_code.gnn.regression import RegressionGCN
-from alex_code.compute_baselines import wrapper, solve_problem
+from alex_code.compute_baselines import wrapper, run_baseline_astar, run_baseline_gbfs, search_astar, search_gbfs
 
 from alex_code.utils.load import find_weight_dict
 
 parser = ArgumentParser()
-parser.add_argument("--domain-file", default="logistics/43/domain.pddl", type=str)
-parser.add_argument("--problem-file", default="logistics/43/problogistics-6-1.pddl", type=str)
-parser.add_argument("--graph-path", default="logistics/43/problogistics-6-1.p", type=str)
+parser.add_argument("--domain-file", default="logistics/38/domain.pddl", type=str)
+parser.add_argument("--problem-file", default="logistics/38/prob31.pddl", type=str)
+parser.add_argument("--graph-path", default="logistics/38/prob31.p", type=str)
+# parser.add_argument("--domain-file", default="modded_transport/small/domain.pddl", type=str)
+# parser.add_argument("--problem-file", default="modded_transport/small/ptest.pddl", type=str)
+# parser.add_argument("--graph-path", default="modded_transport/small/ptest.p", type=str)
 
-parser.add_argument("--epochs", default=200, dest="epochs", type=int)
+parser.add_argument("--epochs", default=500, dest="epochs", type=int)
 parser.add_argument("--batch-size", default=1000, dest="batch_size", type=int)
-parser.add_argument("--normalization", default="none", dest="normalization", choices=["none", "normalize",
+parser.add_argument("--normalization", default="features", dest="normalization", choices=["none", "normalize",
                                                                                            "features", "samples"])
 parser.add_argument("--seed", default=219, dest="seed")
 parser.add_argument("--lr", default=0.01, dest="lr", type=float)
-parser.add_argument("--model", default="deepgcn", dest="model", type=str, choices=["arma", "gcn", "deepgcn"])
+parser.add_argument("--model", default="overfit", dest="model", type=str, choices=["arma", "gcn", "deepgcn", "overfit"])
 parser.add_argument("--directed", default="undirected", type=str, choices=["directed", "undirected"])
 parser.add_argument("--activation", default="selu", type=str, choices=["sigmoid", "tanh", "relu", "elu", "selu"])
 
-parser.add_argument("--comparison-time-limit", default=100, type=int)
-
-
-def run_search(task, heuristic):
-    solution, expansions = solve_problem(task, heuristic)
-
-    return expansions
+parser.add_argument("--comparison-time-limit", default=120, type=int)
 
 
 def main(args):
@@ -89,21 +86,35 @@ def main(args):
     result_stats_file = os.environ.get("GNN_STATS_FILE")
     result_stats_path = os.path.join(result_dir, result_stats_file)
 
-    results = {"gnn": {"time": None, "expansions": None}}
+    results = {"astar": {"time": None, "expansions": None},
+               "gbfs": {"time": None, "expansions": None}}
 
     heuristic = GNNHeuristic(problem, task, model, args.directed, args.normalization, device)
 
     try:
         with time_limit(args.comparison_time_limit):
-            expansions = run_search(task, heuristic)
-            results["gnn"]["expansions"] = expansions
-            results["gnn"]["timed_out"] = False
+            expansions = run_baseline_gbfs(task, heuristic)
+            results["gbfs"]["expansions"] = expansions
+            results["gbfs"]["timed_out"] = False
+
         with time_limit(args.comparison_time_limit):
-            wrapped = wrapper(solve_problem, task, heuristic)
-            results["gnn"]["time"] = timeit.timeit(wrapped, number=1)
+            wrapped = wrapper(search_gbfs, task, heuristic)
+            results["gbfs"]["time"] = timeit.timeit(wrapped, number=1)
     except TimeoutException as e:
         print("Timed out")
-        results["gnn"]["timed_out"] = True
+        results["gbfs"]["timed_out"] = True
+
+    try:
+        with time_limit(args.comparison_time_limit):
+            expansions = run_baseline_astar(task, heuristic)
+            results["astar"]["expansions"] = expansions
+            results["astar"]["timed_out"] = False
+        with time_limit(args.comparison_time_limit):
+            wrapped = wrapper(search_astar, task, heuristic)
+            results["astar"]["time"] = timeit.timeit(wrapped, number=1)
+    except TimeoutException as e:
+        print("Timed out")
+        results["astar"]["timed_out"] = True
 
     print(results)
 

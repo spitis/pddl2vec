@@ -116,15 +116,20 @@ def main(args):
             results["astar"][identifier]["expansions"] = run_baseline_astar(task, heuristics[args.heuristic](task))
             results["astar"][identifier]["timed_out"] = False
         with time_limit(args.time_limit):
+            results["astar"][identifier]["time"] = time_baseline(task, heuristics[args.heuristic](task), search_astar)
+    except TimeoutException as e:
+        print("Timed out")
+        results["astar"][identifier]["timed_out"] = True
+
+    try:
+        with time_limit(args.time_limit):
             results["gbfs"][identifier]["expansions"] = run_baseline_gbfs(task, heuristics[args.heuristic](task))
             results["gbfs"][identifier]["timed_out"] = False
-        with time_limit(args.time_limit):
-            results["astar"][identifier]["time"] = time_baseline(task, heuristics[args.heuristic](task), search_astar)
         with time_limit(args.time_limit):
             results["gbfs"][identifier]["time"] = time_baseline(task, heuristics[args.heuristic](task), search_gbfs)
     except TimeoutException as e:
         print("Timed out")
-        results[identifier]["timed_out"] = True
+        results["gbfs"][identifier]["timed_out"] = True
 
     with open(result_path, "w") as fp:
         json.dump(results, fp, indent=4, sort_keys=True)
