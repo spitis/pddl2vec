@@ -29,16 +29,15 @@ class Node2VecHeuristic(Heuristic):
     Implements a simple blind heuristic for convenience.
     It returns 0 if the goal was reached and 1 otherwise.
     """
-    def __init__(self, task, embeddings, node_mapping, token_mapping, goal_idx):
+    def __init__(self, task, embeddings, node_mapping, goal_idx):
         super(Node2VecHeuristic, self).__init__()
         self.goals = task.goals
         self.embeddings = embeddings
         self.node_mapping = node_mapping
-        self.token_mapping = token_mapping
         self.goal_idx = goal_idx
 
     def __call__(self, node):
-        node_idx = hash_state(node.state, self.token_mapping)
+        node_idx = hash_state(node.state)
         
         if node_idx not in self.node_mapping.keys():
             return 0.0

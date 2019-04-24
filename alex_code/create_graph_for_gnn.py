@@ -12,8 +12,8 @@ from alex_code.utils.graph import expand_state_space_gnn, gen_primes, hash_state
 from alex_code.utils.save import write_pickle
 
 parser = ArgumentParser()
-parser.add_argument("--domain-path", default="logistics/38/domain.pddl", type=str)
-parser.add_argument("--problem-path", default="logistics/38/prob31.pddl", type=str)
+parser.add_argument("--domain-path", default="logistics/43/domain.pddl", type=str)
+parser.add_argument("--problem-path", default="logistics/43/problogistics-6-1.pddl", type=str)
 
 
 def generate_token_mapping(problem):
@@ -47,18 +47,8 @@ def main(args):
 
     print("Generating graph for: {}".format(args.problem_path))
 
-    token_mapping = generate_token_mapping(problem)
-    G, goal_node, counts = expand_state_space_gnn(problem, task, token_mapping)
-
-    final_G = nx.Graph()
-    node_mapping = {n: i for i, n in enumerate(list(G.nodes))}
-
-    for node in list(G.nodes):
-        counts[node_mapping[node]] = counts[node]
-        del counts[node]
-
-    for edge in list(G.edges):
-        final_G.add_edge(node_mapping[edge[0]], node_mapping[edge[1]])
+    G, goal_node, counts = expand_state_space_gnn(problem, task)
+    nx.set_node_attributes(G, counts, "counts")
 
     graph_dir = os.environ.get("GNN_GRAPH_DIR")
     graph_dir = os.path.join(ROOT_DIR, graph_dir, os.path.dirname(args.problem_path))
@@ -68,18 +58,16 @@ def main(args):
     graph_file = os.environ.get("GNN_GRAPH_FILE")
     graph_file = os.path.join(graph_dir, graph_file.format(problem_name=problem_name))
 
-    node_mapping_file = os.environ.get("NODE_MAPPING_FILE")
-    node_mapping_file = os.path.join(graph_dir, node_mapping_file.format(problem_name=problem_name))
+    goal_file = os.environ.get("GOAL_FILE")
+    goal_file = os.path.join(graph_dir, goal_file.format(problem_name=problem_name))
 
-    token_mapping_file = os.environ.get("TOKEN_MAPPING_FILE")
-    token_mapping_file = os.path.join(graph_dir, token_mapping_file.format(problem_name=problem_name))
+    goal_state = task.goals
 
     if not os.path.exists(graph_dir):
         os.makedirs(graph_dir)
 
-    write_edges(final_G, graph_file)
-    write_pickle(node_mapping, node_mapping_file)
-    write_pickle(token_mapping, token_mapping_file)
+    write_pickle(G, graph_file)
+    write_pickle(goal_state, goal_file)
 
 
 if __name__ == "__main__":

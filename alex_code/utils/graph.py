@@ -6,7 +6,7 @@ from search import searchspace
 import networkx as nx
 
 
-def expand_state_space_node2vec(planning_task, token_mapping, limit=1000000):
+def expand_state_space_node2vec(planning_task, limit=1000000):
     '''
     Searches for a plan on the given task using breadth first search and
     duplicate detection.
@@ -45,7 +45,7 @@ def expand_state_space_node2vec(planning_task, token_mapping, limit=1000000):
                 new_node = searchspace.make_child_node(node, operator,
                                                          successor_state)
                 queue.append(new_node)
-                G.add_edge(hash_state(node.state, token_mapping), hash_state(new_node.state, token_mapping))
+                G.add_edge(hash_state(node.state), hash_state(new_node.state))
                  # remember the successor state
                 # print("node.g: {} | new_node.g: {}".format(node.g, new_node.g))
                 closed.add(successor_state)
@@ -55,29 +55,8 @@ def expand_state_space_node2vec(planning_task, token_mapping, limit=1000000):
     return G, None
 
 
-def hash_state(state, token_mapping):
-    hash = 1
-    
-    if type(state) == tuple:
-        temp = state[0].name[1:-1].split(" ")[0]
-        hash *= token_mapping[temp]
-        
-        for fact in state[1]:
-            temp_tokens = fact[1:-1]
-            temp_tokens = temp_tokens.split(" ")
-
-            for temp_token in temp_tokens:
-                hash *= token_mapping[temp_token]        
-        
-    else:    
-        for fact in state:
-            temp_tokens = fact[1:-1]
-            temp_tokens = temp_tokens.split(" ")
-
-            for temp_token in temp_tokens:
-                hash *= token_mapping[temp_token]
-            
-    return hash
+def hash_state(state):
+    return abs(hash(state)) % (10 ** 12)
 
 
 def gen_primes():
@@ -115,7 +94,7 @@ def gen_primes():
         q += 1
         
 
-def expand_state_space_gnn(problem, planning_task, token_mapping, limit=1000000):
+def expand_state_space_gnn(problem, planning_task, limit=1000000):
     G = nx.Graph()
     counts = {}
     iteration = 0
@@ -140,7 +119,7 @@ def expand_state_space_gnn(problem, planning_task, token_mapping, limit=1000000)
             logging.info("%d Nodes expanded" % iteration)
             return G, node, counts
 
-        node_hash = hash_state(node.state, token_mapping)
+        node_hash = hash_state(node.state)
         # Store count-based features for node
         counts[node_hash] = get_counts(problem, planning_task, node.state)
 
@@ -151,7 +130,7 @@ def expand_state_space_gnn(problem, planning_task, token_mapping, limit=1000000)
                 new_node = searchspace.make_child_node(node, operator,
                                                          successor_state)
                 queue.append(new_node)
-                new_node_hash = hash_state(new_node.state, token_mapping)
+                new_node_hash = hash_state(new_node.state)
                 # Stroe count-based features for new state
                 counts[new_node_hash] = get_counts(problem, planning_task, new_node.state)
 
@@ -178,7 +157,7 @@ def get_predicate_counts(problem, task, state):
         state_grouped_counts[parsed[0]] += 1
 
         if fact in task.goals:
-            common_grouped_counts += 1
+            common_grouped_counts[parsed[0]] += 1
 
     for key in state_grouped_counts.keys():
         state_grouped_list.append(state_grouped_counts[key])
