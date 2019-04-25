@@ -9,9 +9,9 @@ from alex_code.utils.similarity import cosine_similarity
 class ValueIterationHeuristic(Heuristic):
     """Implements a heuristic based on a learned value function."""
 
-    def __init__(self, obs_ph, values, sess, env):
+    def __init__(self, obs_ph, goal_ph, is_goal_agent, values, sess, env):
         """Initializes a ValueIterationHeuristic.
-        
+
         Args:
           obs_ph:
           values: A Tensor of shape [None, ] containing the estimated value
@@ -21,6 +21,8 @@ class ValueIterationHeuristic(Heuristic):
         super(ValueIterationHeuristic, self).__init__()
         self.values = values
         self.obs_ph = obs_ph
+        self.goal_ph = goal_ph
+        self.is_goal_agent = is_goal_agent
         self.sess = sess
         self.env = env
 
@@ -29,6 +31,14 @@ class ValueIterationHeuristic(Heuristic):
         state = node.state  # A frozenset.
         state_emb = self.env.E.state_to_emb(state)  # A list of int facts.
         state_emb = np.array([state_emb])  # [1, num facts True in state].
-        value = self.sess.run(
-            self.values, feed_dict={self.obs_ph: state_emb})[0]
+        # Grab the goal from the ground task somehow.
+        print(self.env.task)
+        goal = self.env.task.goal
+        goal_emb = self.env.E.state_to_emb(goal)
+        goal_emb = np.array([goal_emb])
+        
+        feed_dict_ = {self.obs_ph: state_emb}
+        if goal_agent:
+          feed_dict_[self.goal_ph] = goal_embed
+        value = self.sess.run(self.values, feed_dict=feed_dict_)[0]
         return -value
