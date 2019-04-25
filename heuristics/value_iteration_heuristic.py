@@ -31,14 +31,14 @@ class ValueIterationHeuristic(Heuristic):
         state = node.state  # A frozenset.
         state_emb = self.env.E.state_to_emb(state)  # A list of int facts.
         state_emb = np.array([state_emb])  # [1, num facts True in state].
-        # Grab the goal from the ground task somehow.
-        print(self.env.task)
-        goal = self.env.task.goal
+
+        # Grab the goal from the ground task.
+        goal = self.env.task.goals
         goal_emb = self.env.E.state_to_emb(goal)
         goal_emb = np.array([goal_emb])
         
         feed_dict_ = {self.obs_ph: state_emb}
-        if goal_agent:
-          feed_dict_[self.goal_ph] = goal_embed
+        if self.is_goal_agent:
+          feed_dict_[self.goal_ph] = goal_emb
         value = self.sess.run(self.values, feed_dict=feed_dict_)[0]
         return -value

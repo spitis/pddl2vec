@@ -17,11 +17,12 @@ parser.add_argument(
     type=str)
 parser.add_argument(
     "--problem-file",
-    default="pddl_files/modded_transport/ptest.pddl",
+    default="pddl_files/modded_transport/ptest3.pddl",
     type=str)
 parser.add_argument(
     "--restore-dir",
-    default="/scratch/gobi1/eleni/csc2542/value_iteration_1",
+    #default="/scratch/gobi1/eleni/csc2542/value_iteration_1",
+    default="/scratch/gobi1/eleni/csc2542/ptest3/ptest3_1",
     type=str)
 parser.add_argument(
     "--is-goal-agent",
@@ -100,7 +101,7 @@ def main(args):
 
     results = {}
     results["vi_heuristic"] = evaluate_vi_model(vi_model, args.is_goal_agent)
-    results["vi_heuristic_random_weights"] = evaluate_vi_model(vi_model_random, is_goal_agent=False)
+    results["vi_heuristic_random_weights"] = evaluate_vi_model(vi_model_random, args.is_goal_agent)
 
     # Also try some standard heuristics on the same problem.
     heuristics = {_get_heuristic_name(h): h for h in get_heuristics()}
