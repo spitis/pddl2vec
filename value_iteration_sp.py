@@ -59,18 +59,18 @@ class SimpleValueIteration(BaseRLModel):
 
   def __init__(self,
                env,
-               embed_dim=200,
-               layer_sizes=[200,200,1],
+               embed_dim=256,
+               layer_sizes=[128,64,1],
                gamma=0.98,
-               learning_rate=1e-3,
+               learning_rate=3e-3,
                *,
-               exploration_fraction=.3,
-               buffer_size=100000,
+               exploration_fraction=.25,
+               buffer_size=1000000,
                train_freq=10,
-               batch_size=400,
+               batch_size=500,
                learning_starts=2500,
-               target_network_update_frac=0.25,
-               target_network_update_freq=150,
+               target_network_update_frac=0.05,
+               target_network_update_freq=50,
                hindsight_mode=None,
                grad_norm_clipping=5.,
                verbose=1,
@@ -214,7 +214,7 @@ class SimpleValueIteration(BaseRLModel):
           r_t = tf.placeholder(tf.float32, [None, None], name="reward")
           target_successor_values = tf.reshape(target_successor_values, [batch_size, -1])
 
-          next_q_values = r_t + self.gamma * target_successor_values
+          next_q_values = r_t + self.gamma * (-1 * r_t) * target_successor_values
 
           # The value of each *chosen* successor of states in obs_ph.
           # [batch size, 1].
@@ -556,11 +556,11 @@ class SimpleValueIteration(BaseRLModel):
 if __name__ == '__main__':
   env = PddlSimpleMultiGoalEnv(
       domain='pddl_files/modded_transport/domain.pddl',
-      instance='pddl_files/modded_transport/ptest.pddl')
+      instance='pddl_files/modded_transport/ptest5.pddl')
   eval_env = copy.deepcopy(env)
   model = SimpleValueIteration(env=env, tensorboard_log=FLAGS.tensorboard_log, 
       ckpt_dir=FLAGS.ckpt_dir, restore_dir=FLAGS.restore_dir, eval_env=eval_env,
-      hindsight_mode='future_4')
+      hindsight_mode='future_8')
 
   # env = PddlBasicEnv(
   #     domain='pddl_files/modded_transport/domain.pddl',
@@ -568,4 +568,4 @@ if __name__ == '__main__':
   # eval_env = copy.deepcopy(env)
   # model = SimpleValueIteration(env=env, tensorboard_log=FLAGS.tensorboard_log, 
   #     ckpt_dir=FLAGS.ckpt_dir, restore_dir=FLAGS.restore_dir, eval_env=eval_env)
-  model.learn(total_timesteps=1000000, max_steps=50, tb_log_name='value_iteration')
+  model.learn(total_timesteps=1000000, max_steps=100, tb_log_name='value_iteration')
