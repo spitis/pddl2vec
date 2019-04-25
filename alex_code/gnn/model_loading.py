@@ -1,4 +1,4 @@
-from alex_code.gnn.regression import RegressionARMA, RegressionGCN, RegressionNN, DeepGCN
+from alex_code.gnn.regression import RegressionARMA, RegressionGCN, RegressionNN, DeepGCN, OverFit
 
 
 def create_model(name, activation, num_features):
@@ -10,6 +10,8 @@ def create_model(name, activation, num_features):
         model = RegressionNN(activation, num_features)
     elif name == "deepgcn":
         model = DeepGCN(activation, num_features)
+    elif name == "overfit":
+        model = OverFit(activation, num_features)
     else:
         raise Exception("Specified model: {} does not exist".format(name))
 

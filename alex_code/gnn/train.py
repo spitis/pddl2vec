@@ -5,7 +5,7 @@ import json
 import os
 
 from settings import ROOT_DIR
-from alex_code.gnn.gnn_pair_dataset import get_pairs, get_pairs_directed
+from alex_code.gnn.gnn_pair_dataset import get_pairs_long, get_pairs_short, get_pairs_directed
 
 from alex_code.gnn.gnn_pair_dataset import GNNPairDatasetDisk
 from alex_code.gnn.model_loading import create_model
@@ -23,13 +23,15 @@ from tensorboardX import SummaryWriter
 
 parser = ArgumentParser()
 parser.add_argument("--graph-path", default="logistics/43/problogistics-6-1.p", type=str)
-parser.add_argument("--epochs", default=200, dest="epochs", type=int)
+# parser.add_argument("--graph-path", default="modded_transport/small/ptest.p", type=str)
+parser.add_argument("--epochs", default=500, dest="epochs", type=int)
 parser.add_argument("--batch-size", default=1000, dest="batch_size", type=int)
-parser.add_argument("--normalization", default="none", dest="normalization", choices=["none", "features",
+parser.add_argument("--normalization", default="features", dest="normalization", choices=["none", "features",
                                                                                           "samples"])
 parser.add_argument("--seed", default=219, dest="seed")
 parser.add_argument("--lr", default=0.01, dest="lr", type=float)
-parser.add_argument("--model", default="deepgcn", dest="model", type=str, choices=["arma", "gcn", "nn", "deepgcn"])
+parser.add_argument("--model", default="deepgcn", dest="model", type=str, choices=["arma", "gcn", "nn", "deepgcn",
+                                                                                   "overfit"])
 parser.add_argument("--directed", default="undirected", type=str, choices=["directed", "undirected"])
 parser.add_argument("--activation", default="selu", type=str, choices=["sigmoid", "tanh", "relu", "elu", "selu"])
 
@@ -51,7 +53,8 @@ def train(dataset, writer, args):
         if args.directed == "directed":
             left, right, distance, edge_index = get_pairs_directed(dataset, device, num_pairs=args.batch_size)
         else:
-            left, right, distance, edge_index = get_pairs(dataset, device, num_pairs=args.batch_size)
+            left, right, distance, edge_index = get_pairs_short(dataset, device, num_pairs=args.batch_size)
+
         optimizer.zero_grad()
 
         out = model(dataset.data.x, edge_index)
@@ -76,7 +79,7 @@ def train(dataset, writer, args):
     if args.directed == "directed":
         left, right, distance, edge_index = get_pairs_directed(dataset, device)
     else:
-        left, right, distance, edge_index = get_pairs(dataset, device)
+        left, right, distance, edge_index = get_pairs_short(dataset, device)
 
     out = model(dataset.data.x, edge_index)
     left_features = out[left]

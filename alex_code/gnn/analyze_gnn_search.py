@@ -26,13 +26,13 @@ parser.add_argument("--domain-file", default="logistics/43/domain.pddl", type=st
 parser.add_argument("--problem-file", default="logistics/43/problogistics-6-1.pddl", type=str)
 parser.add_argument("--graph-path", default="logistics/43/problogistics-6-1.p", type=str)
 
-parser.add_argument("--epochs", default=200, dest="epochs", type=int)
+parser.add_argument("--epochs", default=500, dest="epochs", type=int)
 parser.add_argument("--batch-size", default=1000, dest="batch_size", type=int)
 parser.add_argument("--normalization", default="features", dest="normalization", choices=["none", "normalize",
                                                                                            "features", "samples"])
 parser.add_argument("--seed", default=219, dest="seed")
 parser.add_argument("--lr", default=0.01, dest="lr", type=float)
-parser.add_argument("--model", default="deepgcn", dest="model", type=str, choices=["arma", "gcn", "deepgcn"])
+parser.add_argument("--model", default="deepgcn", dest="model", type=str, choices=["arma", "gcn", "deepgcn", "overfit"])
 parser.add_argument("--directed", default="undirected", type=str, choices=["directed", "undirected"])
 parser.add_argument("--activation", default="selu", type=str, choices=["sigmoid", "tanh", "relu", "elu", "selu"])
 parser.add_argument("--comparison-heuristic", default="hadd", type=str, choices=["hadd", "hmax"])

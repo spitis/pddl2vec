@@ -3,15 +3,6 @@ from dotenv import find_dotenv, load_dotenv
 
 from settings import ROOT_DIR
 import os
-import json
-import torch
-import timeit
-
-from heuristics.gnn import GNNHeuristic
-
-from alex_code.utils.save import read_json
-from alex_code.gnn.model_loading import create_model
-from alex_code.compute_baselines import wrapper, solve_problem
 
 from alex_code.utils.load import find_best_model
 
