@@ -12,7 +12,8 @@ import stable_baselines.tf_util as tf_util
 from stable_baselines.replay_buffer import ReplayBuffer, EpisodicBuffer, her_future, HerFutureAchievedPastActual
 
 tf.flags.DEFINE_string('tensorboard_log', './test/', 'Where to store the logs.')
-tf.flags.DEFINE_string('ckpt_dir', './test/', 'Where to store the checkpoints.')
+tf.flags.DEFINE_string('task', 'ptest', 'task name.')
+tf.flags.DEFINE_string('save_dir', './test/ckpt', 'Where to store the logs.')
 tf.flags.DEFINE_string('restore_dir', '', 'The location from where to grab '
     'and restore the latest checkpoint.')
 FLAGS = tf.flags.FLAGS
@@ -59,18 +60,18 @@ class SimpleValueIteration(BaseRLModel):
 
   def __init__(self,
                env,
-               embed_dim=200,
-               layer_sizes=[200,200,1],
+               embed_dim=256,
+               layer_sizes=[256,256,1],
                gamma=0.98,
                learning_rate=1e-3,
                *,
-               exploration_fraction=.3,
+               exploration_fraction=.4,
                buffer_size=100000,
-               train_freq=10,
-               batch_size=400,
+               train_freq=5,
+               batch_size=250,
                learning_starts=2500,
-               target_network_update_frac=0.25,
-               target_network_update_freq=150,
+               target_network_update_frac=0.03,
+               target_network_update_freq=100,
                hindsight_mode=None,
                grad_norm_clipping=5.,
                verbose=1,
@@ -152,6 +153,8 @@ class SimpleValueIteration(BaseRLModel):
         with tf.variable_scope("main_network"):
           with tf.variable_scope("embedding"):
             W_fact_embed = tf.get_variable('fact_embed_W', initializer=tf.truncated_normal([len(self.env.task.facts), self.embed_dim]))
+            if goal_space:
+              G_fact_embed = tf.get_variable('fact_embed_G', initializer=tf.truncated_normal([len(self.env.task.facts), self.embed_dim]))
 
           with tf.variable_scope("layers"):
             # Initialize the weights of the value network.
@@ -188,6 +191,8 @@ class SimpleValueIteration(BaseRLModel):
         with tf.variable_scope("target_network", reuse=False):
           with tf.variable_scope("embedding"):
             W_fact_embed_target = tf.get_variable('fact_embed_W_target', initializer=tf.truncated_normal([len(self.env.task.facts), self.embed_dim]))
+            if goal_space:
+              G_fact_embed_target = tf.get_variable('fact_embed_G_target', initializer=tf.truncated_normal([len(self.env.task.facts), self.embed_dim]))
 
           with tf.variable_scope("layers"):
             # Initialize the weights of the value network.
@@ -214,7 +219,7 @@ class SimpleValueIteration(BaseRLModel):
           r_t = tf.placeholder(tf.float32, [None, None], name="reward")
           target_successor_values = tf.reshape(target_successor_values, [batch_size, -1])
 
-          next_q_values = r_t + self.gamma * target_successor_values
+          next_q_values = r_t + self.gamma * (-1 * r_t) * target_successor_values
 
           # The value of each *chosen* successor of states in obs_ph.
           # [batch size, 1].
@@ -284,7 +289,7 @@ class SimpleValueIteration(BaseRLModel):
 
         # Create an object for saving model checkpoints.
         if self.ckpt_dir is not None:
-          self.saver = tf.train.Saver(max_to_keep=10)
+          self.saver = tf.train.Saver(max_to_keep=2)
           if not os.path.isdir(self.ckpt_dir):
             os.makedirs(self.ckpt_dir)
 
@@ -556,11 +561,11 @@ class SimpleValueIteration(BaseRLModel):
 if __name__ == '__main__':
   env = PddlSimpleMultiGoalEnv(
       domain='pddl_files/modded_transport/domain.pddl',
-      instance='pddl_files/modded_transport/ptest.pddl')
+      instance='pddl_files/modded_transport/{}.pddl'.format(FLAGS.task))
   eval_env = copy.deepcopy(env)
-  model = SimpleValueIteration(env=env, tensorboard_log=FLAGS.tensorboard_log, 
-      ckpt_dir=FLAGS.ckpt_dir, restore_dir=FLAGS.restore_dir, eval_env=eval_env,
-      hindsight_mode='future_4')
+  model = SimpleValueIteration(env=env, tensorboard_log=os.path.join(FLAGS.tensorboard_log, FLAGS.task), 
+      ckpt_dir=os.path.join(FLAGS.save_dir, FLAGS.task), restore_dir=FLAGS.restore_dir, eval_env=eval_env,
+      hindsight_mode='future_8')
 
   # env = PddlBasicEnv(
   #     domain='pddl_files/modded_transport/domain.pddl',
@@ -568,4 +573,4 @@ if __name__ == '__main__':
   # eval_env = copy.deepcopy(env)
   # model = SimpleValueIteration(env=env, tensorboard_log=FLAGS.tensorboard_log, 
   #     ckpt_dir=FLAGS.ckpt_dir, restore_dir=FLAGS.restore_dir, eval_env=eval_env)
-  model.learn(total_timesteps=1000000, max_steps=50, tb_log_name='value_iteration')
+  model.learn(total_timesteps=250000, max_steps=100, tb_log_name=FLAGS.task)
