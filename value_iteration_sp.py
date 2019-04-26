@@ -66,7 +66,7 @@ class SimpleValueIteration(BaseRLModel):
                learning_rate=1e-3,
                *,
                exploration_fraction=.4,
-               buffer_size=100000,
+               buffer_size=1000000,
                train_freq=5,
                batch_size=250,
                learning_starts=2500,
@@ -573,4 +573,4 @@ if __name__ == '__main__':
   # eval_env = copy.deepcopy(env)
   # model = SimpleValueIteration(env=env, tensorboard_log=FLAGS.tensorboard_log, 
   #     ckpt_dir=FLAGS.ckpt_dir, restore_dir=FLAGS.restore_dir, eval_env=eval_env)
-  model.learn(total_timesteps=250000, max_steps=100, tb_log_name=FLAGS.task)
+  model.learn(total_timesteps=2000000, max_steps=200, tb_log_name=FLAGS.task)

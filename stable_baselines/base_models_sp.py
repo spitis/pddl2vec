@@ -78,7 +78,7 @@ class BaseRLModel(ABC):
   def _process_experience(self, obs, action, rew, new_obs, done):
     pass
 
-  def evaluate(self, n_episodes, max_steps=50):
+  def evaluate(self, n_episodes, max_steps=80):
     """evaluates model for n_episodes"""
     env = self.eval_env
     assert env is not None, "Must set an eval_env in order to evaluate!"
