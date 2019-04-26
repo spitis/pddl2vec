@@ -6,7 +6,7 @@ import tensorflow as tf
 from argparse import ArgumentParser
 from pyperplan import search, get_heuristics, _get_heuristic_name
 
-from pddl2env import PddlBasicEnv
+from pddl2env import PddlBasicEnv, PddlSimpleMultiGoalEnv
 from value_iteration_sp import SimpleValueIteration
 from heuristics.value_iteration_heuristic import ValueIterationHeuristic
 
@@ -17,12 +17,17 @@ parser.add_argument(
     type=str)
 parser.add_argument(
     "--problem-file",
-    default="pddl_files/modded_transport/ptest.pddl",
+    default="pddl_files/modded_transport/ptest3.pddl",
     type=str)
 parser.add_argument(
     "--restore-dir",
-    default="/scratch/gobi1/eleni/csc2542/value_iteration_1",
+    #default="/scratch/gobi1/eleni/csc2542/value_iteration_1",
+    default="/scratch/gobi1/eleni/csc2542/ptest3/ptest3_1",
     type=str)
+parser.add_argument(
+    "--is-goal-agent",
+    default=True,
+    action='store_true')
 
 
 def wrapper(func, *args, **kwargs):
@@ -46,17 +51,22 @@ def perform_search(task, heuristic):
     return {
         "time": time_taken,
         "expansions": expansions,
+        "solution length": len(solution)
     }
 
 
-def evaluate_vi_model(vi_model):
+def evaluate_vi_model(vi_model, is_goal_agent):
     """Performs search using the given value-iteration model."""
     # Make sure the current state is the initial state.
     vi_model.env.reset()
 
     # The heuristic estimate of each given state based on the model's values.
-    heuristic = ValueIterationHeuristic(vi_model._obs_ph, vi_model.values,
-                                        vi_model.sess, vi_model.env)
+    heuristic = ValueIterationHeuristic(vi_model._obs_ph,
+                                        vi_model._goal_ph,
+                                        is_goal_agent,
+                                        vi_model.values,
+                                        vi_model.sess,
+                                        vi_model.env)
     return perform_search(vi_model.env.task, heuristic)
 
 
@@ -68,21 +78,30 @@ def evaluate_standard(env, heuristic):
 
 
 def main(args):
+    print('is goal agent: {}'.format(args.is_goal_agent))
+
     problem_name = os.path.basename(args.problem_file).split(".")[0]
 
     # Get an environment for the specified domain and problem.
-    env = PddlBasicEnv(domain=args.domain_file, instance=args.problem_file)
+    if args.is_goal_agent:
+      env = PddlSimpleMultiGoalEnv(domain=args.domain_file,
+          instance=args.problem_file)
+    else:
+      env = PddlBasicEnv(domain=args.domain_file, instance=args.problem_file)
 
     # Load a pre-trained Value-Iteration model.
-    vi_model = SimpleValueIteration(
-        env=env, ckpt_dir=args.restore_dir, restore_dir=args.restore_dir)
+    kwargs = {}
+    if args.is_goal_agent:
+      kwargs['hindsight_mode'] = 'future_4'
+    vi_model = SimpleValueIteration(env=env, ckpt_dir=args.restore_dir,
+        restore_dir=args.restore_dir, **kwargs)
 
-    # Get a Value-Iteration model with random weights.
+    # Get a Value-Iteration model with random weights (this is just a control).
     vi_model_random = SimpleValueIteration(env=env)
 
     results = {}
-    results["vi_heuristic"] = evaluate_vi_model(vi_model)
-    results["vi_heuristic_random_weights"] = evaluate_vi_model(vi_model_random)
+    results["vi_heuristic"] = evaluate_vi_model(vi_model, args.is_goal_agent)
+    results["vi_heuristic_random_weights"] = evaluate_vi_model(vi_model_random, args.is_goal_agent)
 
     # Also try some standard heuristics on the same problem.
     heuristics = {_get_heuristic_name(h): h for h in get_heuristics()}
