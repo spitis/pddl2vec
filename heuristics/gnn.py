@@ -68,14 +68,6 @@ class GNNHeuristic(Heuristic):
 
             counts[hash_state(neighbour.state)] = get_counts(self.problem, self.task, neighbour.state)
 
-        for neighbour in neighbours:
-            second_level = get_neighbours_forward(self.task, neighbour)
-
-            for sec in second_level:
-                G.add_edge(hash_state(neighbour.state), hash_state(sec.state))
-
-                counts[hash_state(sec.state)] = get_counts(self.problem, self.task, sec.state)
-
         nx.set_node_attributes(G, counts, "counts")
 
         node_mapping = {n: i for i, n in enumerate(list(G.nodes))}
